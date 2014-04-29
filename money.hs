@@ -1,7 +1,6 @@
 module Main where
 
 import Control.Applicative ((<$>))
---import Control.Arrow (arr, (&&&))
 import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (elemIndices, isInfixOf, genericLength, genericTake, genericDrop, tails, sortBy)
@@ -25,9 +24,6 @@ data Transaction = Transaction { description :: String
 (?) True  x _ = x
 (?) False _ y = y
 
---unsplit :: (b -> c -> d) -> (b, c) -> d
---unsplit = arr . uncurry
-
 listApp :: (a -> a -> b) -> [a] -> b
 listApp f ls = f (head ls) (last ls)
 
@@ -44,13 +40,12 @@ substr l u = genericTake (u - l) . genericDrop l
 count :: (Eq a, Integral n) => a -> [a] -> n
 count x = genericLength . filter (==x)
 
---TODO generalize String to [a]
 --TODO flip some burgers and get rid of the lambda
 --WTF (2 :: Int) are you fucking kidding me....... warning otherwise....
 splitOnIndices :: (Integral n) => [n] -> [a] -> [[a]]
 splitOnIndices is xs = window (2 :: Int) is & map (\a -> listApp substr a xs) & mapTail (genericDrop (1 :: Int))
 
---TODO generalize ?
+--TODO generalize,parameterize ?
 --WTF :: Int.... warning otherwise. need to find better workaround
 splitOnNonEscapedCommas :: String -> [String]
 splitOnNonEscapedCommas str = splitOnIndices splitIndices str
@@ -82,17 +77,30 @@ usefulDescription s =
             where
                 clean ws = if "RECURRING" `isInfixOf` last ws then init ws else ws
 
---fuzzy string matching for descriptions
---matches words independently
---there are warnings here...
+{-
+    fuzzy string matching for transaction descriptions
+    works as follows:
+        "this is string 1" "here is another string"
+        ["this", "is", ...] ["here", "is", ...]
+        [["this", "is", "string", "1"], ["is", "string", "1"], ["string", "1"], ...] [["here", ...], ...]
+        
+        now these 2 lists of tails of words of the strings are matched against each other 
+
+        (["this", "is", "string", "1"] `match` ["here", "is", "another", "string"]) +
+        (["this", "is", "string", "1"] `match` ["is", "another", "string"]) +
+
+        this sum is then normalized by n * (n + 1)/2 where n is the length of the larger string
+    ideas:
+        also include inits in permutation and then replace match with (==)
+-}
 fuzzyMatch :: String -> String -> Double
 fuzzyMatch a b = fromIntegral countEqual/normalizer
     where
         maxLen = max (genericLength (words a)) (genericLength (words b))
         pluralize = tails . words
         permutations = mapM pluralize [a, b]
-        countEqual = (sum . map (listApp innerCount)) permutations :: Int
-        innerCount as bs = count True $ zipWith (==) as bs
+        countEqual = (sum . map (listApp match)) permutations :: Int
+        match as bs = count True $ zipWith (==) as bs
         -- figured this out by trial and error. this is n*(n+1)/2 which is sum (map length (tails (words a)))
         normalizer = maxLen * (maxLen + 1) * 0.5 
 
