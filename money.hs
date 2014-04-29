@@ -3,7 +3,7 @@ module Main where
 import Control.Applicative ((<$>))
 import Data.Char (isSpace)
 import Data.Function (on)
-import Data.List (elemIndices, isInfixOf, genericLength, genericTake, genericDrop, tails, sortBy)
+import Data.List (elemIndices, isInfixOf, tails, sortBy)
 
 data Transaction = Transaction { description :: String
                                , date :: String
@@ -30,27 +30,25 @@ listApp f ls = f (head ls) (last ls)
 mapTail :: (a -> a) -> [a] -> [a]
 mapTail f xs = head xs:map f (tail xs)
 
-window :: (Integral n) => n -> [a] -> [[a]]
+window :: Int -> [a] -> [[a]]
 window _ [] = []
-window n xs = if genericLength xs < n then [] else genericTake n xs:window n (tail xs)
+window n xs = if length xs < n then [] else take n xs:window n (tail xs)
 
-substr :: (Integral n) => n -> n -> [a] -> [a]
-substr l u = genericTake (u - l) . genericDrop l
+substr :: Int -> Int -> [a] -> [a]
+substr l u = take (u - l) . drop l
 
-count :: (Eq a, Integral n) => a -> [a] -> n
-count x = genericLength . filter (==x)
+count :: (Eq a) => a -> [a] -> Int
+count x = length . filter (==x)
 
 --TODO flip some burgers and get rid of the lambda
---WTF (2 :: Int) are you fucking kidding me....... warning otherwise....
-splitOnIndices :: (Integral n) => [n] -> [a] -> [[a]]
-splitOnIndices is xs = window (2 :: Int) is & map (\a -> listApp substr a xs) & mapTail (genericDrop (1 :: Int))
+splitOnIndices :: [Int] -> [a] -> [[a]]
+splitOnIndices is xs = window 2 is & map (\a -> listApp substr a xs) & mapTail (drop (1 :: Int))
 
 --TODO generalize,parameterize ?
---WTF :: Int.... warning otherwise. need to find better workaround
 splitOnNonEscapedCommas :: String -> [String]
 splitOnNonEscapedCommas str = splitOnIndices splitIndices str
     where
-        isEscapedCommaIndex idx = odd ((count '"' $ genericTake idx str) :: Int)
+        isEscapedCommaIndex idx = odd (count '"' $ take idx str)
         splitIndices = 0:filter (not . isEscapedCommaIndex) (elemIndices ',' str) ++ [length str]
 
 -- TODO cleanup var names
@@ -96,13 +94,13 @@ usefulDescription s =
 fuzzyMatch :: String -> String -> Double
 fuzzyMatch a b = fromIntegral countEqual/normalizer
     where
-        maxLen = max (genericLength (words a)) (genericLength (words b))
+        maxLen = fromIntegral $ max (length (words a)) (length (words b))
         pluralize = tails . words
         permutations = mapM pluralize [a, b]
-        countEqual = (sum . map (listApp match)) permutations :: Int
+        countEqual = (sum . map (listApp match)) permutations
         match as bs = count True $ zipWith (==) as bs
         -- figured this out by trial and error. this is n*(n+1)/2 which is sum (map length (tails (words a)))
-        normalizer = maxLen * (maxLen + 1) * 0.5 
+        normalizer = maxLen * (maxLen + 1) * 0.5
 
 fuzzyMatchChecks :: [Bool]
 fuzzyMatchChecks = [ fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" ""
