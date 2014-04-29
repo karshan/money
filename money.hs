@@ -1,16 +1,17 @@
 module Main where
 
 import Control.Applicative ((<$>))
-import Control.Arrow (arr, (&&&))
+--import Control.Arrow (arr, (&&&))
 import Data.Char (isSpace)
-import Data.List (elemIndices, isInfixOf, genericLength, genericTake, genericDrop)
+import Data.Function (on)
+import Data.List (elemIndices, isInfixOf, genericLength, genericTake, genericDrop, tails, sortBy)
 
 data Transaction = Transaction { description :: String
 							   , date :: String
 							   , amount :: String
 							   , runningBalance :: String
 							   , tags :: [String]
-							   } deriving (Show)
+							   } deriving (Show, Eq)
 
 (<&>) :: Functor f => f a -> (a -> b) -> f b
 (<&>) = flip (<$>)
@@ -24,8 +25,8 @@ data Transaction = Transaction { description :: String
 (?) True  x _ = x
 (?) False _ y = y
 
-unsplit :: (b -> c -> d) -> (b, c) -> d
-unsplit = arr . uncurry
+--unsplit :: (b -> c -> d) -> (b, c) -> d
+--unsplit = arr . uncurry
 
 listApp :: (a -> a -> b) -> [a] -> b
 listApp f ls = f (head ls) (last ls)
@@ -73,7 +74,7 @@ transactions = readFile "/Users/karshan/gits/money/stmt.csv" <&> csvToTransactio
 --Eventually to be used to identify transactions that are the similar and give the same tags to them
 --Maybe a better way to do this would be fuzzy matching
 usefulDescription :: String -> String
-usefulDescription s = 
+usefulDescription s =
 	"CHECKCARD" `isInfixOf` head (words s) ? checkCardDescription s $
 	s
 	where
@@ -84,8 +85,33 @@ usefulDescription s =
 --fuzzy string matching for descriptions
 --matches words independently
 --there are warnings here...
-fuzzyMatch :: (Floating a) => String -> String -> a
-fuzzyMatch a b = sequence [words a, words b] & ((fromIntegral . count True . map (listApp (==))) &&& genericLength) & unsplit (\a b -> a/sqrt b)
-		
+fuzzyMatch :: String -> String -> Double
+fuzzyMatch a b = fromIntegral countEqual/normalizer
+	where
+		maxLen = max (genericLength (words a)) (genericLength (words b))
+		pluralize = tails . words
+		permutations = mapM pluralize [a, b]
+		countEqual = (sum . map (listApp innerCount)) permutations :: Int
+		innerCount as bs = count True $ zipWith (==) as bs
+		-- figured this out by trial and error. this is n*(n+1)/2 which is sum (map length (tails (words a)))
+		normalizer = maxLen * (maxLen + 1) * 0.5 
+
+fuzzyMatchChecks :: [Bool]
+fuzzyMatchChecks = [ fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" ""
+				   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "else world"
+				   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "world hello"
+				   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "hello hello"
+				   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "hello world hello world"
+				   , fuzzyMatch "hello world" "hello world" == fuzzyMatch "hello world a b" "hello world a b"
+				   , fuzzyMatch "hello world" "hello fail" < fuzzyMatch "hello world a b" "hello fail a b"
+				   , fuzzyMatch "hello world" "hello world" == fuzzyMatch "hello hello" "hello hello"
+				   ]
+
+similarTransactions :: [Transaction] -> Transaction -> [(Double, Transaction)]
+similarTransactions ts t = map (\x -> (score x, x)) ts & sortBy (compare `on` fst) & reverse
+	where
+		score x = fuzzyMatch (description x) (description t) 
+
 main :: IO ()
 main = transactions >>= print
+
