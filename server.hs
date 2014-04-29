@@ -1,8 +1,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import Data.Aeson (encode)
 import qualified Data.ByteString.Char8 as BS (pack)
-import qualified Data.ByteString.Lazy.Char8 as LBS (pack)
+import qualified Data.ByteString.Lazy.Char8 as LBS (pack, ByteString)
 import Data.Text (Text)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
 import qualified Money as M (transactions)
@@ -17,6 +18,9 @@ import Network.Wai.Handler.Warp (run)
 
 responseString :: String -> Response
 responseString = LBS.pack >>> responseLBS ok200 [(hContentType, "text/plain")]
+
+responseJSON :: LBS.ByteString -> Response
+responseJSON = responseLBS ok200 [(hContentType, "application/json")]
 
 main :: IO ()
 main = putStrLn ("Listening on port " ++ show port) >> run port app
@@ -43,4 +47,4 @@ static :: Request -> IO Response
 static = staticApp $ defaultWebAppSettings $ FP.decodeString "./static_root"
 
 transactions :: Request -> IO Response
-transactions _ = M.transactions >>= (map show >>> unlines >>> return) >>= (responseString >>> return)
+transactions _ = M.transactions >>= (encode >>> return) >>= (responseJSON >>> return)

@@ -1,3 +1,5 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Money
     (
       Transaction(..)
@@ -7,16 +9,20 @@ module Money
     where
 
 import Control.Applicative ((<$>))
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Char (isSpace)
 import Data.Function (on)
 import Data.List (elemIndices, isInfixOf, tails, sortBy)
+import GHC.Generics (Generic)
 
 data Transaction = Transaction { description :: String
                                , date :: String
                                , amount :: String
                                , runningBalance :: String
                                , tags :: [String]
-                               } deriving (Show, Eq)
+                               } deriving (Show, Eq, Generic)
+instance FromJSON Transaction
+instance ToJSON Transaction
 
 (<&>) :: Functor f => f a -> (a -> b) -> f b
 (<&>) = flip (<$>)
