@@ -1,4 +1,10 @@
-module Main where
+module Money
+    (
+      Transaction(..)
+    , transactions
+    , similarTransactions
+    )
+    where
 
 import Control.Applicative ((<$>))
 import Data.Char (isSpace)
