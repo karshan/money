@@ -7,11 +7,11 @@ import Data.Function (on)
 import Data.List (elemIndices, isInfixOf, genericLength, genericTake, genericDrop, tails, sortBy)
 
 data Transaction = Transaction { description :: String
-							   , date :: String
-							   , amount :: String
-							   , runningBalance :: String
-							   , tags :: [String]
-							   } deriving (Show, Eq)
+                               , date :: String
+                               , amount :: String
+                               , runningBalance :: String
+                               , tags :: [String]
+                               } deriving (Show, Eq)
 
 (<&>) :: Functor f => f a -> (a -> b) -> f b
 (<&>) = flip (<$>)
@@ -54,18 +54,18 @@ splitOnIndices is xs = window (2 :: Int) is & map (\a -> listApp substr a xs) & 
 --WTF :: Int.... warning otherwise. need to find better workaround
 splitOnNonEscapedCommas :: String -> [String]
 splitOnNonEscapedCommas str = splitOnIndices splitIndices str
-	where
-		isEscapedCommaIndex idx = odd ((count '"' $ genericTake idx str) :: Int)
-		splitIndices = 0:filter (not . isEscapedCommaIndex) (elemIndices ',' str) ++ [length str]
+    where
+        isEscapedCommaIndex idx = odd ((count '"' $ genericTake idx str) :: Int)
+        splitIndices = 0:filter (not . isEscapedCommaIndex) (elemIndices ',' str) ++ [length str]
 
 -- TODO cleanup var names
 csvToTransactions :: String -> [Transaction]
 csvToTransactions s = map csvRecordToTransaction tRecords
-	where 
-		tRecords = tail csvRecords
-		csvRecords = lines s & dropWhile (not . all isSpace) & tail & map splitOnNonEscapedCommas
-		-- TODO make this safe, use header = head csvRecords; maybe ?
-		csvRecordToTransaction t = Transaction {description=t !! 1, date=head t, amount=t !! 2, runningBalance=t !! 3, tags=[]}  
+    where 
+        tRecords = tail csvRecords
+        csvRecords = lines s & dropWhile (not . all isSpace) & tail & map splitOnNonEscapedCommas
+        -- TODO make this safe, use header = head csvRecords; maybe ?
+        csvRecordToTransaction t = Transaction {description=t !! 1, date=head t, amount=t !! 2, runningBalance=t !! 3, tags=[]}  
 
 --TKTK
 transactions :: IO [Transaction]
@@ -75,42 +75,42 @@ transactions = readFile "/Users/karshan/gits/money/stmt.csv" <&> csvToTransactio
 --Maybe a better way to do this would be fuzzy matching
 usefulDescription :: String -> String
 usefulDescription s =
-	"CHECKCARD" `isInfixOf` head (words s) ? checkCardDescription s $
-	s
-	where
-		checkCardDescription st = clean (words st) & drop 2 & init & unwords
-			where
-				clean ws = if "RECURRING" `isInfixOf` last ws then init ws else ws
+    "CHECKCARD" `isInfixOf` head (words s) ? checkCardDescription s $
+    s
+    where
+        checkCardDescription st = clean (words st) & drop 2 & init & unwords
+            where
+                clean ws = if "RECURRING" `isInfixOf` last ws then init ws else ws
 
 --fuzzy string matching for descriptions
 --matches words independently
 --there are warnings here...
 fuzzyMatch :: String -> String -> Double
 fuzzyMatch a b = fromIntegral countEqual/normalizer
-	where
-		maxLen = max (genericLength (words a)) (genericLength (words b))
-		pluralize = tails . words
-		permutations = mapM pluralize [a, b]
-		countEqual = (sum . map (listApp innerCount)) permutations :: Int
-		innerCount as bs = count True $ zipWith (==) as bs
-		-- figured this out by trial and error. this is n*(n+1)/2 which is sum (map length (tails (words a)))
-		normalizer = maxLen * (maxLen + 1) * 0.5 
+    where
+        maxLen = max (genericLength (words a)) (genericLength (words b))
+        pluralize = tails . words
+        permutations = mapM pluralize [a, b]
+        countEqual = (sum . map (listApp innerCount)) permutations :: Int
+        innerCount as bs = count True $ zipWith (==) as bs
+        -- figured this out by trial and error. this is n*(n+1)/2 which is sum (map length (tails (words a)))
+        normalizer = maxLen * (maxLen + 1) * 0.5 
 
 fuzzyMatchChecks :: [Bool]
 fuzzyMatchChecks = [ fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" ""
-				   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "else world"
-				   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "world hello"
-				   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "hello hello"
-				   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "hello world hello world"
-				   , fuzzyMatch "hello world" "hello world" == fuzzyMatch "hello world a b" "hello world a b"
-				   , fuzzyMatch "hello world" "hello fail" < fuzzyMatch "hello world a b" "hello fail a b"
-				   , fuzzyMatch "hello world" "hello world" == fuzzyMatch "hello hello" "hello hello"
-				   ]
+                   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "else world"
+                   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "world hello"
+                   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "hello hello"
+                   , fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello world" "hello world hello world"
+                   , fuzzyMatch "hello world" "hello world" == fuzzyMatch "hello world a b" "hello world a b"
+                   , fuzzyMatch "hello world" "hello fail" < fuzzyMatch "hello world a b" "hello fail a b"
+                   , fuzzyMatch "hello world" "hello world" == fuzzyMatch "hello hello" "hello hello"
+                   ]
 
 similarTransactions :: [Transaction] -> Transaction -> [(Double, Transaction)]
 similarTransactions ts t = map (\x -> (score x, x)) ts & sortBy (compare `on` fst) & reverse
-	where
-		score x = fuzzyMatch (description x) (description t) 
+    where
+        score x = fuzzyMatch (description x) (description t) 
 
 main :: IO ()
 main = transactions >>= print
