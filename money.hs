@@ -8,16 +8,16 @@ module Money
     )
     where
 
-import Control.Applicative ((<$>))
 import Data.Aeson (FromJSON, ToJSON)
-import Data.Char (isSpace)
+import Data.Char (isSpace, isNumber)
 import Data.Function (on)
 import Data.List (elemIndices, isInfixOf, tails, sortBy)
+import Data.Maybe (fromMaybe, listToMaybe)
 import GHC.Generics (Generic)
 
 data Transaction = Transaction { description :: String
                                , date :: String
-                               , amount :: String
+                               , amount :: Int
                                , runningBalance :: String
                                , tags :: [String]
                                } deriving (Show, Eq, Generic)
@@ -25,7 +25,7 @@ instance FromJSON Transaction
 instance ToJSON Transaction
 
 (<&>) :: Functor f => f a -> (a -> b) -> f b
-(<&>) = flip (<$>)
+(<&>) = flip fmap
 
 --TODO rename to |>
 --TODO pick one $ or & don't use both....
@@ -35,6 +35,9 @@ instance ToJSON Transaction
 (?) :: Bool -> a -> a -> a
 (?) True  x _ = x
 (?) False _ y = y
+
+maybeRead :: Read a => String -> Maybe a
+maybeRead = fmap fst . listToMaybe . reads
 
 listApp :: (a -> a -> b) -> [a] -> b
 listApp f ls = f (head ls) (last ls)
@@ -70,7 +73,8 @@ csvToTransactions s = map csvRecordToTransaction tRecords
         tRecords = tail csvRecords
         csvRecords = lines s & dropWhile (not . all isSpace) & tail & map splitOnNonEscapedCommas
         -- TODO make this safe, use header = head csvRecords; maybe ?
-        csvRecordToTransaction t = Transaction {description=t !! 1, date=head t, amount=t !! 2, runningBalance=t !! 3, tags=[]}  
+        csvRecordToTransaction t = Transaction {description=t !! 1, date=head t, amount=getAmount (t !! 2), runningBalance=t !! 3, tags=[]}
+        getAmount a = ceiling $ (*100) $ fromMaybe 0.0 $ maybeRead $ filter (\x -> isNumber x || x == '-' || x == '.') a
 
 --TKTK
 transactions :: IO [Transaction]
@@ -130,6 +134,4 @@ similarTransactions ts t = map (\x -> (score x, x)) ts & sortBy (compare `on` fs
     where
         score x = fuzzyMatch (description x) (description t) 
 
-main :: IO ()
-main = transactions >>= print
 
