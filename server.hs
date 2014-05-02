@@ -43,8 +43,12 @@ redirect url _ = return $ responseLBS movedPermanently301 [(hLocation, BS.pack u
 notFound :: Request -> IO Response
 notFound req = return $ responseString $ "not found " ++ (show $ pathInfo req)
 
+-- assumes request pathInfo is non-empty. Verified since its checked in route. 
+-- It would be nice if the compiler could make that guarantee.
 static :: Request -> IO Response
-static = staticApp $ defaultWebAppSettings $ FP.decodeString "./static_root"
+static req = app (req { pathInfo = tail (pathInfo req) })
+    where
+        app = staticApp $ defaultWebAppSettings $ FP.decodeString "./static"
 
 transactions :: Request -> IO Response
 transactions _ = M.transactions >>= (encode >>> return) >>= (responseJSON >>> return)
