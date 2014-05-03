@@ -1,3 +1,3 @@
  - split code into multiple files
  - implement couchdb library
-
+ - fix multiple Content-Length headers from staticApp (use mapHeaders from wai-util)
