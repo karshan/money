@@ -74,11 +74,11 @@ csvToTransactions s = map csvRecordToTransaction tRecords
         csvRecords = lines s & dropWhile (not . all isSpace) & tail & map splitOnNonEscapedCommas
         -- TODO make this safe, use header = head csvRecords; maybe ?
         csvRecordToTransaction t = Transaction {description=t !! 1, date=head t, amount=getAmount (t !! 2), runningBalance=t !! 3, tags=[]}
-        getAmount a = ceiling $ (*100) $ fromMaybe 0.0 $ maybeRead $ filter (\x -> isNumber x || x == '-' || x == '.') a
+        getAmount a = ceiling $ (*100) $ fromMaybe (0.0 :: Double) $ maybeRead $ filter (\x -> isNumber x || x == '-' || x == '.') a
 
 --TKTK
 transactions :: IO [Transaction]
-transactions = readFile "/Users/karshan/gits/money/stmt.csv" <&> csvToTransactions
+transactions = readFile "/home/karshan/gits/money/stmt.csv" <&> csvToTransactions
 
 --Eventually to be used to identify transactions that are the similar and give the same tags to them
 --Maybe a better way to do this would be fuzzy matching

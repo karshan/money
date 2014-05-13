@@ -13,7 +13,10 @@ import Network.Wai (Request, Response, responseLBS, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
 
+
+(&) :: b -> (b -> c) -> c
 (&) = flip ($)
+(>>>) :: (a -> b) -> (b -> c) -> a -> c
 (>>>) = flip (.)
 
 responseString :: String -> Response
@@ -34,7 +37,7 @@ route :: [Text] -> Request -> IO Response
 route path
     | null path = redirect "/static/index.html"
     | head path == "static" = static
-    | head path == "transactions" = transactions
+    | path == ["transactions"] = transactions
     | otherwise = notFound
 
 redirect :: String -> Request -> IO Response
@@ -46,9 +49,9 @@ notFound req = return $ responseString $ "not found " ++ (show $ pathInfo req)
 -- assumes request pathInfo is non-empty. Verified since its checked in route. 
 -- It would be nice if the compiler could make that guarantee.
 static :: Request -> IO Response
-static req = app (req { pathInfo = tail (pathInfo req) })
+static req = a (req { pathInfo = tail (pathInfo req) })
     where
-        app = staticApp $ defaultWebAppSettings $ FP.decodeString "./static"
+        a = staticApp $ defaultWebAppSettings $ FP.decodeString "./static"
 
 transactions :: Request -> IO Response
 transactions _ = M.transactions >>= (encode >>> return) >>= (responseJSON >>> return)
