@@ -12,8 +12,9 @@ import Data.Aeson (FromJSON, ToJSON)
 import Data.Char (isSpace, isNumber)
 import Data.Function (on)
 import Data.List (elemIndices, isInfixOf, tails, sortBy)
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe)
 import GHC.Generics (Generic)
+import Util ((<&>), (&), (?), maybeRead, listApp, splitOnIndices, count)
 
 data Transaction = Transaction { description :: String
                                , date :: String
@@ -24,51 +25,17 @@ data Transaction = Transaction { description :: String
 instance FromJSON Transaction
 instance ToJSON Transaction
 
-(<&>) :: Functor f => f a -> (a -> b) -> f b
-(<&>) = flip fmap
-
---TODO rename to |>
---TODO pick one $ or & don't use both....
-(&) :: a -> (a -> b) -> b
-(&) = flip ($)
-
-(?) :: Bool -> a -> a -> a
-(?) True  x _ = x
-(?) False _ y = y
-
-maybeRead :: Read a => String -> Maybe a
-maybeRead = fmap fst . listToMaybe . reads
-
-listApp :: (a -> a -> b) -> [a] -> b
-listApp f ls = f (head ls) (last ls)
-
-mapTail :: (a -> a) -> [a] -> [a]
-mapTail f xs = head xs:map f (tail xs)
-
-window :: Int -> [a] -> [[a]]
-window _ [] = []
-window n xs = if length xs < n then [] else take n xs:window n (tail xs)
-
-substr :: Int -> Int -> [a] -> [a]
-substr l u = take (u - l) . drop l
-
-count :: (Eq a) => a -> [a] -> Int
-count x = length . filter (==x)
-
---TODO flip some burgers and get rid of the lambda
-splitOnIndices :: [Int] -> [a] -> [[a]]
-splitOnIndices is xs = window 2 is & map (\a -> listApp substr a xs) & mapTail (drop (1 :: Int))
-
 --TODO generalize,parameterize ?
 splitOnNonEscapedCommas :: String -> [String]
 splitOnNonEscapedCommas str = splitOnIndices splitIndices str
     where
         isEscapedCommaIndex idx = odd (count '"' $ take idx str)
-        splitIndices = 0:filter (not . isEscapedCommaIndex) (elemIndices ',' str) ++ [length str]
+        splitIndices = filter (not . isEscapedCommaIndex) (elemIndices ',' str)
 
+-- Converts bank of america debit card csv output into [Transaction] Type
 -- TODO cleanup var names
-csvToTransactions :: String -> [Transaction]
-csvToTransactions s = map csvRecordToTransaction tRecords
+debitCardCsvToTransactions :: String -> [Transaction]
+debitCardCsvToTransactions s = map csvRecordToTransaction tRecords
     where 
         tRecords = tail csvRecords
         csvRecords = lines s & dropWhile (not . all isSpace) & tail & map splitOnNonEscapedCommas
@@ -76,12 +43,14 @@ csvToTransactions s = map csvRecordToTransaction tRecords
         csvRecordToTransaction t = Transaction {description=t !! 1, date=head t, amount=getAmount (t !! 2), runningBalance=t !! 3, tags=[]}
         getAmount a = ceiling $ (*100) $ fromMaybe (0.0 :: Double) $ maybeRead $ filter (\x -> isNumber x || x == '-' || x == '.') a
 
---TKTK
+-- This should grab the current list of transactions from a database
 transactions :: IO [Transaction]
-transactions = readFile "/home/karshan/gits/money/stmt.csv" <&> csvToTransactions
+transactions = readFile "/home/karshan/gits/money/stmt.csv" <&> debitCardCsvToTransactions
 
---Eventually to be used to identify transactions that are the similar and give the same tags to them
---Maybe a better way to do this would be fuzzy matching
+-- The point of this function is to convert transaction descriptions into
+-- usefully unique transactions description. Eventually want something like
+-- "CHECKCARD 0401 Chipotle Mountain View CA 12334314123" -> 
+-- {type: CHECKCARD, date: 0401, name: Chipotle, location: ..., transaction_id: ...}
 usefulDescription :: String -> String
 usefulDescription s =
     "CHECKCARD" `isInfixOf` head (words s) ? checkCardDescription s $
@@ -133,5 +102,3 @@ similarTransactions :: [Transaction] -> Transaction -> [(Double, Transaction)]
 similarTransactions ts t = map (\x -> (score x, x)) ts & sortBy (compare `on` fst) & reverse
     where
         score x = fuzzyMatch (description x) (description t) 
-
-

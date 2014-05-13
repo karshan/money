@@ -12,12 +12,7 @@ import Network.HTTP.Types.Header (hContentType, hLocation)
 import Network.Wai (Request, Response, responseLBS, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
-
-
-(&) :: b -> (b -> c) -> c
-(&) = flip ($)
-(>>>) :: (a -> b) -> (b -> c) -> a -> c
-(>>>) = flip (.)
+import Util ((&), (>>>))
 
 responseString :: String -> Response
 responseString = LBS.pack >>> responseLBS ok200 [(hContentType, "text/plain")]
