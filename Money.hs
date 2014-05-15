@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Money
     (
       Transaction(..)
@@ -8,22 +6,46 @@ module Money
     )
     where
 
-import Data.Aeson (FromJSON, ToJSON)
 import Data.Char (isSpace, isNumber)
 import Data.Function (on)
 import Data.List (elemIndices, isInfixOf, tails, sortBy)
 import Data.Maybe (fromMaybe)
-import GHC.Generics (Generic)
 import Util ((<&>), (&), (?), maybeRead, listApp, splitOnIndices, count)
+import Text.JSON (Result(..), JSValue(..), JSON(..), toJSObject, fromJSObject)
 
 data Transaction = Transaction { description :: String
                                , date :: String
                                , amount :: Int
                                , runningBalance :: String
                                , tags :: [String]
-                               } deriving (Show, Eq, Generic)
-instance FromJSON Transaction
-instance ToJSON Transaction
+                               } deriving (Show, Eq)
+
+-- Database.CouchDB forces us to use Text.JSON tsk tsk
+-- with Aeson none of this instance code is required
+-- though it "could" be cleaned up
+instance JSON Transaction where
+    readJSON (JSObject o) = let l = fromJSObject o
+        in do desc <- jslookup "description" l
+              dt <- jslookup "date" l
+              amt <- jslookup "amount" l
+              rb <- jslookup "runningBalance" l
+              tg <- jslookup "tags" l
+              return Transaction { description = desc
+                                 , date = dt
+                                 , amount = amt
+                                 , runningBalance = rb
+                                 , tags = tg
+                                 }
+            where
+                jslookup k l = maybe (Error $ "missing key: " ++ k) readJSON (lookup k l)
+    readJSON _ = Error "Not an object"
+    showJSON t = showJSON $ toJSObject [
+                                          ("description", showJSON $ description t)
+                                        , ("date", showJSON $ date t)
+                                        , ("amount", showJSON $ amount t)
+                                        , ("runningBalance", showJSON $ runningBalance t)
+                                        , ("tags", showJSONs $ tags t)
+                                       ]
 
 --TODO generalize,parameterize ?
 splitOnNonEscapedCommas :: String -> [String]
