@@ -39,3 +39,12 @@ function renderTransactions(ts) {
 function error(e) {
     document.getElementById("error").innerHtml = "" + e;
 }
+
+function dopost() {
+    var req = new XMLHttpRequest();
+    req.onload = function() {
+        alert(this.responseText);
+    }
+    req.open("post", "/similar", true);
+    req.send("this is the test data");
+}
