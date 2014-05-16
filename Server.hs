@@ -9,10 +9,11 @@ import qualified Filesystem.Path.CurrentOS as FP (decodeString)
 import qualified ManageDB as MDB (getTransactions, addTransaction)
 import qualified Money as M (transactions)
 import Network.HTTP.Types (ok200, movedPermanently301)
-import Network.HTTP.Types.Header (hContentType, hLocation)
+import Network.HTTP.Types.Header (hContentType, hLocation, hContentLength)
 import Network.Wai (Request, Response, responseLBS, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
+import Network.Wai.Util (mapHeaders)
 import Text.JSON (encodeStrict)
 import Util ((&), (>>>))
 
@@ -46,7 +47,7 @@ notFound req = return $ responseString $ "not found " ++ (show $ pathInfo req)
 -- assumes request pathInfo is non-empty. Verified since its checked in route. 
 -- It would be nice if the compiler could make that guarantee.
 static :: Request -> IO Response
-static req = a (req { pathInfo = tail (pathInfo req) })
+static req = fmap (mapHeaders (filter (\(k,v) -> k /= hContentLength))) $ a (req { pathInfo = tail (pathInfo req) })
     where
         a = staticApp $ defaultWebAppSettings $ FP.decodeString "./static"
 

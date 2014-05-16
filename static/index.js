@@ -17,14 +17,22 @@ function main() {
     req.send();
 }
 
+function addToRow(row, text) {
+    var td = document.createElement("td");
+    td.appendChild(document.createTextNode(text));
+    row.appendChild(td);
+}
+
 function renderTransactions(ts) {
     var root = document.getElementById("transactions");
     for (var i in ts) {
         var t = ts[i];
-        var span = document.createElement("div");
-        var text = document.createTextNode("Date: " + t.date + " Description: " + t.description + " Amount: " + t.amount + " Running Balance: " + t.runningBalance);
-        span.appendChild(text);
-        transactions.appendChild(span);
+        var row = document.createElement("tr");
+        addToRow(row, t.date);
+        addToRow(row, t.description);
+        addToRow(row, t.amount/100);
+        addToRow(row, JSON.stringify(t.tags));
+        transactions.appendChild(row);
     }
 }
 
