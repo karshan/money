@@ -10,13 +10,15 @@ import Data.Char (isSpace, isNumber)
 import Data.Function (on)
 import Data.List (elemIndices, isInfixOf, tails, sortBy)
 import Data.Maybe (fromMaybe)
+import Data.Time (UTCTime(..), Day(..), secondsToDiffTime)
+import Data.Time.Format (parseTime, formatTime)
 import Util ((<&>), (&), (?), maybeRead, listApp, splitOnIndices, count)
-import Text.JSON (Result(..), JSValue(..), JSON(..), toJSObject, fromJSObject)
+import System.Locale (defaultTimeLocale)
+import Text.JSON (Result(..), JSValue(..), JSON(..), toJSObject, fromJSObject, toJSString, fromJSString)
 
 data Transaction = Transaction { description :: String
-                               , date :: String
+                               , date :: UTCTime
                                , amount :: Int
-                               , runningBalance :: String
                                , tags :: [String]
                                } deriving (Show, Eq)
 
@@ -28,12 +30,10 @@ instance JSON Transaction where
         in do desc <- jslookup "description" l
               dt <- jslookup "date" l
               amt <- jslookup "amount" l
-              rb <- jslookup "runningBalance" l
               tg <- jslookup "tags" l
               return Transaction { description = desc
                                  , date = dt
                                  , amount = amt
-                                 , runningBalance = rb
                                  , tags = tg
                                  }
             where
@@ -43,9 +43,17 @@ instance JSON Transaction where
                                           ("description", showJSON $ description t)
                                         , ("date", showJSON $ date t)
                                         , ("amount", showJSON $ amount t)
-                                        , ("runningBalance", showJSON $ runningBalance t)
                                         , ("tags", showJSONs $ tags t)
                                        ]
+
+instance JSON UTCTime where
+    readJSON (JSString s) = maybeToResult "parseTime Failed" $ parseTime defaultTimeLocale "%m/%d/%Y" (fromJSString s)
+        where 
+            maybeToResult :: String -> Maybe a -> Result a
+            maybeToResult _ (Just a) = Ok a
+            maybeToResult st Nothing = Error st
+    readJSON _ = Error "not string" 
+    showJSON d = showJSON $ toJSString $ formatTime defaultTimeLocale "%m/%d/%Y" d
 
 --TODO generalize,parameterize ?
 splitOnNonEscapedCommas :: String -> [String]
@@ -62,8 +70,15 @@ debitCardCsvToTransactions s = map csvRecordToTransaction tRecords
         tRecords = tail csvRecords
         csvRecords = lines s & dropWhile (not . all isSpace) & tail & map splitOnNonEscapedCommas
         -- TODO make this safe, use header = head csvRecords; maybe ?
-        csvRecordToTransaction t = Transaction {description=t !! 1, date=head t, amount=getAmount (t !! 2), runningBalance=t !! 3, tags=[]}
+        csvRecordToTransaction t = Transaction {
+                                                  description=t !! 1
+                                                , date=getTime (head t)
+                                                , amount=getAmount (t !! 2)
+                                                , tags=[]
+                                               }
         getAmount a = ceiling $ (*100) $ fromMaybe (0.0 :: Double) $ maybeRead $ filter (\x -> isNumber x || x == '-' || x == '.') a
+        getTime a = (fromMaybe defaultTime $ parseTime defaultTimeLocale "%m/%d/%Y" a) :: UTCTime
+        defaultTime = UTCTime { utctDay = ModifiedJulianDay 0, utctDayTime = secondsToDiffTime 0 }
 
 -- This should grab the current list of transactions from a database
 transactions :: IO [Transaction]
