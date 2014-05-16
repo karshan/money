@@ -3,8 +3,10 @@ module Main where
 
 import qualified Data.ByteString.Char8 as BS (pack)
 import qualified Data.ByteString.Lazy.Char8 as LBS (pack, ByteString)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
+import qualified ManageDB as MDB (getTransactions, addTransaction)
 import qualified Money as M (transactions)
 import Network.HTTP.Types (ok200, movedPermanently301)
 import Network.HTTP.Types.Header (hContentType, hLocation)
@@ -49,4 +51,4 @@ static req = a (req { pathInfo = tail (pathInfo req) })
         a = staticApp $ defaultWebAppSettings $ FP.decodeString "./static"
 
 transactions :: Request -> IO Response
-transactions _ = M.transactions >>= (encodeStrict >>> return) >>= (responseJSON >>> return)
+transactions _ = MDB.getTransactions >>= (fromMaybe [] >>> encodeStrict >>> responseJSON >>> return)

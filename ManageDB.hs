@@ -3,6 +3,7 @@ module ManageDB
     , deleteAll
     , addTransaction
     , getTransactions
+    , addTransactions
     )
     where
 
@@ -69,13 +70,20 @@ deleteAll :: IO ()
 deleteAll = void $ runCouchDB' $ dropDB dbName
 
 -- TODO clean this with something like >>= (\a -> a >>= b) for the maybe inside the monad
-addTransaction :: Transaction -> IO (Maybe (Doc, Rev))
-addTransaction t = runCouchDB' $ (getDoc thedb theDoc) >>= addUpdate
+updateTransactions :: ([Transaction] -> [Transaction]) -> IO (Maybe (Doc, Rev))
+updateTransactions f = runCouchDB' $ (getDoc thedb theDoc) >>= addUpdate
     where
         addUpdate :: Maybe (Doc, Rev, Transactions) -> CouchMonad (Maybe (Doc, Rev))
-        addUpdate (Just (d, r, ts)) =  updateDoc thedb (d, r) (addT ts)
+        addUpdate (Just (d, r, ts)) =  updateDoc thedb (d, r) (g ts)
         addUpdate _ = fail "get failed"
-        addT (Transactions ts) = Transactions (t:ts) 
+        g (Transactions ts) = Transactions (f ts)
+
+addTransaction :: Transaction -> IO (Maybe (Doc, Rev))
+addTransaction t = updateTransactions (\ts -> (t:ts))
+
+-- Atomic unlike mapM addTransaction ts
+addTransactions :: [Transaction] -> IO (Maybe (Doc, Rev))
+addTransactions ts = updateTransactions (\_ts -> ts ++ _ts)
 
 -- This is horrible. why doesn't isn't CouchMonad a Functor ?
 -- TODO clean this with something like >>= (\a -> a >>= b) for the maybe inside the monad
