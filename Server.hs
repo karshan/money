@@ -12,14 +12,14 @@ import Data.Monoid (mconcat)
 import Data.Text (Text)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
 import qualified ManageDB as MDB (getTransactions, addTransaction)
-import qualified Money as M (transactions)
+import qualified Money as M (transactions, similarTransactions)
 import Network.HTTP.Types (ok200, movedPermanently301)
 import Network.HTTP.Types.Header (hContentType, hLocation, hContentLength)
 import Network.Wai (Request, Response, responseLBS, pathInfo, requestMethod, requestBody)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Util (mapHeaders)
-import Text.JSON (encodeStrict)
+import Text.JSON (Result(..), encodeStrict, decodeStrict)
 import Util ((&), (>>>))
 
 rawRequestBody :: Request -> IO BS.ByteString
@@ -68,7 +68,8 @@ transactions _ = MDB.getTransactions >>= (fromMaybe [] >>> encodeStrict >>> resp
 
 similarTransactions :: Request -> IO Response
 similarTransactions req
-    | requestMethod req == "POST" = rawRequestBody req >>= (bsToLBS >>> responseLBS' "text/plain" >>> return)
+    | requestMethod req == "POST" = rawRequestBody req >>= (BS.unpack >>> decodeStrict >>> f)
     | otherwise = notFound req
         where
-            bsToLBS = BS.unpack >>> LBS.pack
+            f (Ok t) = MDB.getTransactions >>= (fromMaybe [] >>> (flip M.similarTransactions) t >>> encodeStrict >>> responseString >>> return) 
+            f (Error s) = undefined

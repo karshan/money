@@ -1,5 +1,6 @@
 "use strict";
 
+var global_vars = {}
 main();
 
 function main() {
@@ -11,7 +12,10 @@ function main() {
         } catch(e) {
             error(e);
         }
-        if (ts) renderTransactions(ts);
+        if (ts) {
+            global_vars.ts = ts;
+            renderTransactions(ts);
+        }
     }
     req.open("get", "/transactions", true);
     req.send();
@@ -46,5 +50,5 @@ function dopost() {
         alert(this.responseText);
     }
     req.open("post", "/similar", true);
-    req.send("this is the test data");
+    req.send(JSON.stringify(global_vars.ts[10]));
 }
