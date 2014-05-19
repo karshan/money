@@ -10,10 +10,10 @@ module Util
     , substr
     , count
     , splitOnIndices
-    , jsonData
     , responseString
     , responseJSON
     , redirect
+    , jsonApp
     ) where
 
 import Control.Applicative ((<$>))
@@ -25,8 +25,8 @@ import Data.Maybe (listToMaybe)
 import Data.Monoid (mconcat)
 import Network.HTTP.Types (ok200, movedPermanently301)
 import Network.HTTP.Types.Header (hContentType, hLocation)
-import Network.Wai (Request, Response, requestBody, responseLBS)
-import Text.JSON (JSON, Result, decodeStrict, encodeStrict)
+import Network.Wai (Request, Response, requestMethod, requestBody, responseLBS)
+import Text.JSON (JSON, Result(..), decodeStrict, encodeStrict)
 
 (<&>) :: Functor f => f a -> (a -> b) -> f b
 (<&>) = flip fmap
@@ -72,7 +72,9 @@ rawRequestBody :: Request -> IO BS.ByteString
 rawRequestBody req = mconcat <$> (requestBody req $$ consume)
 
 jsonData :: JSON a => Request -> IO (Result a)
-jsonData req = rawRequestBody req <&> (BS.unpack >>> decodeStrict)
+jsonData req
+    | requestMethod req == "POST" = rawRequestBody req <&> (BS.unpack >>> decodeStrict)
+    | otherwise = return (Error "Not POST")
 
 responseLBS' :: BS.ByteString -> LBS.ByteString -> Response
 responseLBS' c = responseLBS ok200 [(hContentType, c)]
@@ -85,3 +87,10 @@ responseJSON = encodeStrict >>> LBS.pack >>> responseLBS' "application/json"
 
 redirect :: String -> Request -> IO Response
 redirect url _ = return $ responseLBS movedPermanently301 [(hLocation, BS.pack url)] ""
+
+result :: (String -> b) -> (a -> b) -> Result a -> b
+result _ f (Ok a) = f a
+result f _ (Error s) = f s
+
+jsonApp :: (JSON a, JSON b) => (a -> IO b) -> Request -> IO Response
+jsonApp f req = jsonData req >>= result (responseString >>> return) (fmap responseJSON . f)
