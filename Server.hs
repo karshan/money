@@ -2,17 +2,18 @@
 module Main where
 
 import Control.Applicative ((<$>), (<*>))
+import Control.Monad (void)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
-import qualified ManageDB as MDB (getTransactions)
-import qualified Money as M (similarTransactions)
+import qualified ManageDB as MDB (getTransactions, addTransaction, deleteTransaction)
+import qualified Money as M (Transaction, similarTransactions)
 import Network.HTTP.Types.Header (hContentLength)
 import Network.Wai (Request, Response, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Util (mapHeaders)
-import Util ((>>>), (<&>), jsonApp, redirect, responseJSON, responseString)
+import Util ((<&>), jsonApp, redirect, responseJSON, responseString)
 
 main :: IO ()
 main = putStrLn ("Listening on port " ++ show port) >> run port app
@@ -28,6 +29,8 @@ route path
     | head path == "static" = static
     | path == ["transactions"] = transactions
     | path == ["similar"] = similarTransactions
+    | path == ["delete"] = deleteTransaction
+    | path == ["add"] = addTransaction
     | otherwise = notFound
 
 notFound :: Request -> IO Response
@@ -40,10 +43,20 @@ static req = fmap (mapHeaders (filter (\(k,_) -> k /= hContentLength))) $ a (req
     where
         a = staticApp $ defaultWebAppSettings $ FP.decodeString "./static"
 
+-- TODO error reporting
+ts :: IO [M.Transaction]
+ts = MDB.getTransactions <&> fromMaybe []
+
 transactions :: Request -> IO Response
-transactions _ = MDB.getTransactions <&> (fromMaybe [] >>> responseJSON)
+transactions _ = fmap responseJSON ts
 
 similarTransactions :: Request -> IO Response
 similarTransactions = jsonApp (\t -> M.similarTransactions <$> ts <*> return t)
-        where
-            ts = MDB.getTransactions <&> fromMaybe []
+
+-- TODO error reporting
+deleteTransaction :: Request -> IO Response
+deleteTransaction = jsonApp (void . MDB.deleteTransaction)
+
+-- TODO error reporting
+addTransaction :: Request -> IO Response
+addTransaction = jsonApp (void . MDB.addTransaction)

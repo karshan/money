@@ -1,15 +1,17 @@
 module ManageDB 
     ( ManageDB.init
-    , deleteAll
+    , dropDatabase
     , addTransaction
     , getTransactions
     , addTransactions
+    , deleteTransaction
     )
     where
 
 import Control.Exception (SomeException, catch)
 import Control.Monad (void)
 import Database.CouchDB (CouchMonad, DB, Doc, Rev, runCouchDB', createDB, dropDB, newNamedDoc, db, doc, getDoc, updateDoc)
+import Data.List (delete)
 import Money (Transaction)
 import Text.JSON (JSON(..), JSValue(..), Result(..), toJSObject, fromJSObject)
 
@@ -66,30 +68,32 @@ init = cdb >> cdoc >> return ()
         cdoc = runCouchDB' $ newNamedDoc thedb theDoc (Transactions [])
 
 -- TODO handle exceptions/failure
-deleteAll :: IO ()
-deleteAll = void $ runCouchDB' $ dropDB dbName
+dropDatabase :: IO ()
+dropDatabase = void $ runCouchDB' $ dropDB dbName
 
 -- TODO clean this with something like >>= (\a -> a >>= b) for the maybe inside the monad
 updateTransactions :: ([Transaction] -> [Transaction]) -> IO (Maybe (Doc, Rev))
-updateTransactions f = runCouchDB' $ (getDoc thedb theDoc) >>= addUpdate
+updateTransactions f = runCouchDB' $ (getDoc thedb theDoc) >>= go
     where
-        addUpdate :: Maybe (Doc, Rev, Transactions) -> CouchMonad (Maybe (Doc, Rev))
-        addUpdate (Just (d, r, ts)) =  updateDoc thedb (d, r) (g ts)
-        addUpdate _ = fail "get failed"
-        g (Transactions ts) = Transactions (f ts)
+        go :: Maybe (Doc, Rev, Transactions) -> CouchMonad (Maybe (Doc, Rev))
+        go (Just (d, r, ts)) =  updateDoc thedb (d, r) (app ts)
+        go _ = fail "get failed"
+        app (Transactions ts) = Transactions (f ts)
 
 addTransaction :: Transaction -> IO (Maybe (Doc, Rev))
-addTransaction t = updateTransactions (\ts -> (t:ts))
+addTransaction t = updateTransactions (t:)
 
 -- Atomic unlike mapM addTransaction ts
 addTransactions :: [Transaction] -> IO (Maybe (Doc, Rev))
-addTransactions ts = updateTransactions (\_ts -> ts ++ _ts)
+addTransactions ts = updateTransactions (ts ++)
+
+deleteTransaction :: Transaction -> IO (Maybe (Doc, Rev))
+deleteTransaction t = updateTransactions (delete t)
 
 -- This is horrible. why doesn't isn't CouchMonad a Functor ?
 -- TODO clean this with something like >>= (\a -> a >>= b) for the maybe inside the monad
 getTransactions :: IO (Maybe [Transaction])
-getTransactions = runCouchDB' $ (getDoc thedb theDoc) >>= unwrapTransactions
+getTransactions = runCouchDB' $ getDoc thedb theDoc >>= unwrapTransactions
     where
-        unwrapTransactions :: Maybe (Doc, Rev, Transactions) -> CouchMonad (Maybe [Transaction])
         unwrapTransactions (Just (_, _, Transactions ts)) = return $ Just ts
         unwrapTransactions Nothing = return Nothing
