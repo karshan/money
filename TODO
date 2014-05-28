@@ -1,3 +1,1 @@
- - split code into multiple files
- - implement couchdb library
- - fix multiple Content-Length headers from staticApp (use mapHeaders from wai-util)
+ - Implement typeclasses (Functor, Monad) using http://www.haskellforall.com/2012/05/scrap-your-type-classes.html?m=1 in Elm frontend
