@@ -11,7 +11,7 @@ type Transaction = { description : String
                    }
 
 renderTransactions : Json.Value -> Maybe Element
-renderTransactions a = maybeFmap (\ts -> (flow down) <| map renderTransaction ts) <| listFromJson fromJsonTransaction a
+renderTransactions json = ((flow down) . map renderTransaction) `maybeFmap` listFromJson fromJsonTransaction json
 
 renderTransaction : Transaction -> Element
 renderTransaction t = asText (t.description, t.amount, t.date, t.tags)

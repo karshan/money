@@ -1,1 +1,2 @@
  - Implement typeclasses (Functor, Monad) using http://www.haskellforall.com/2012/05/scrap-your-type-classes.html?m=1 in Elm frontend
+ - Tests (quickcheck ?)

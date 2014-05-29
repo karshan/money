@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import Control.Applicative ((<$>), (<*>))
+import Control.Applicative ((<$>))
 import Control.Monad (void)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
@@ -13,7 +13,7 @@ import Network.Wai (Request, Response, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Util (mapHeaders)
-import Util ((<&>), jsonApp, redirect, responseJSON, responseString)
+import Util (jsonApp, redirect, responseJSON, responseString)
 
 main :: IO ()
 main = putStrLn ("Listening on port " ++ show port) >> run port app
@@ -45,13 +45,13 @@ static req = fmap (mapHeaders (filter (\(k,_) -> k /= hContentLength))) $ a (req
 
 -- TODO error reporting
 ts :: IO [M.Transaction]
-ts = MDB.getTransactions <&> fromMaybe []
+ts = fromMaybe [] <$> MDB.getTransactions
 
 transactions :: Request -> IO Response
 transactions _ = fmap responseJSON ts
 
 similarTransactions :: Request -> IO Response
-similarTransactions = jsonApp (\t -> M.similarTransactions <$> ts <*> return t)
+similarTransactions = jsonApp (\t -> M.similarTransactions t <$> ts)
 
 -- TODO error reporting
 deleteTransaction :: Request -> IO Response

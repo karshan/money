@@ -9,7 +9,7 @@ import Data.Function (on)
 import Data.List (tails, sortBy)
 import Data.Time (UTCTime)
 import Data.Time.Format (parseTime, formatTime)
-import Util ((&), listApp, count)
+import Util (listApp, count)
 import System.Locale (defaultTimeLocale)
 import Text.JSON (Result(..), JSValue(..), JSON(..), toJSObject, fromJSObject, toJSString, fromJSString)
 
@@ -90,7 +90,8 @@ fuzzyMatchChecks = [ fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello 
                    , fuzzyMatch "hello world" "hello world" == fuzzyMatch "hello hello" "hello hello"
                    ]
 
-similarTransactions :: [Transaction] -> Transaction -> [(Double, Transaction)]
-similarTransactions ts t = map (\x -> (score x, x)) ts & sortBy (compare `on` fst) & reverse
+-- TODO use Arrows ?
+similarTransactions :: Transaction -> [Transaction] -> [(Double, Transaction)]
+similarTransactions t = reverse . sortBy (compare `on` fst) . map (\x -> (score x, x))
     where
         score x = fuzzyMatch (description x) (description t) 

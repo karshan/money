@@ -5,6 +5,7 @@ module ParseCSV
     )
     where
 
+import Control.Applicative ((<$>))
 import Data.Char (isSpace, isNumber)
 import Data.List (elemIndices, isInfixOf)
 import Data.Maybe (fromMaybe)
@@ -12,7 +13,7 @@ import Data.Time (UTCTime(..), Day(..), secondsToDiffTime)
 import Data.Time.Format (parseTime)
 import Money (Transaction(..))
 import System.Locale (defaultTimeLocale)
-import Util ((<&>), (&), (?), maybeRead, splitOnIndices, count)
+import Util ((?), maybeRead, splitOnIndices, count)
 
 --TODO generalize,parameterize ?
 splitOnNonEscapedCommas :: String -> [String]
@@ -27,7 +28,7 @@ debitCardCsvToTransactions :: String -> [Transaction]
 debitCardCsvToTransactions s = map csvRecordToTransaction tRecords
     where 
         tRecords = tail csvRecords
-        csvRecords = lines s & dropWhile (not . all isSpace) & tail & map splitOnNonEscapedCommas
+        csvRecords = map splitOnNonEscapedCommas $ tail $ dropWhile (not . all isSpace) $ lines s
         -- TODO make this safe, use header = head csvRecords; maybe ?
         csvRecordToTransaction t = Transaction {
                                                   description = t !! 1
@@ -41,7 +42,7 @@ debitCardCsvToTransactions s = map csvRecordToTransaction tRecords
 
 -- This should grab the current list of transactions from a database
 transactions :: IO [Transaction]
-transactions = readFile "/home/karshan/gits/money/stmt.csv" <&> debitCardCsvToTransactions
+transactions = debitCardCsvToTransactions <$> readFile "/home/karshan/gits/money/stmt.csv"
 
 -- The point of this function is to convert transaction descriptions into
 -- usefully unique transactions description. Eventually want something like
@@ -52,7 +53,7 @@ usefulDescription s =
     "CHECKCARD" `isInfixOf` head (words s) ? checkCardDescription s $
     s
     where
-        checkCardDescription st = clean (words st) & drop 2 & init & unwords
+        checkCardDescription st = unwords $ init $ drop 2 $ clean (words st)
             where
                 clean ws = if "RECURRING" `isInfixOf` last ws then init ws else ws
 
