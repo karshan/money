@@ -1,6 +1,6 @@
 import Http (sendGet, Success, Response)
-import Json (fromString, Value, Array, Object)
-import Dict (Dict)
+import Json
+import Dict (Dict, get)
 
 transactions : Signal (Response String)
 transactions = sendGet (constant "/transactions")
@@ -18,20 +18,56 @@ maybeFmap f val = case val of
     Just a -> Just <| f a
     Nothing -> Nothing
 
-responseJson : (Value -> Maybe Element) -> (Response String) -> Maybe Element
+responseJson : (Json.Value -> Maybe a) -> (Response String) -> Maybe a
 responseJson f a = case a of
-    (Success ts) -> maybeBind f <| fromString ts
-    otherwise -> Nothing
+    (Success ts) -> maybeBind f <| Json.fromString ts
+    _ -> Nothing
 
-mapArrayObject : (Dict String Value -> Maybe b) -> Value -> Maybe [b]
-mapArrayObject f v = case v of
-    (Array vs) -> Just <| justs <| map (\a -> case a of
-                                        (Object o) -> f o
-                                        otherwise -> Nothing) vs 
-    otherwise -> Nothing
+renderTransactions : Json.Value -> Maybe Element
+renderTransactions a = maybeFmap (\ts -> (flow down) <| map renderTransaction ts) <| listFromJson fromJsonTransaction a
 
-renderTransactions : Value -> Maybe Element
-renderTransactions a = maybeFmap (flow down) <| mapArrayObject renderTransaction a 
+renderTransaction : Transaction -> Element
+renderTransaction t = asText (t.description, t.amount, t.date, t.tags)
 
-renderTransaction : (Dict String Value -> Maybe Element)
-renderTransaction t = Just <| asText t
+intFromJson : Json.Value -> Maybe Int
+intFromJson a = case a of
+    (Json.Number b) -> Just <| round b
+    _ -> Nothing
+
+stringFromJson : Json.Value -> Maybe String
+stringFromJson a = case a of
+    (Json.String a) -> Just a
+    _ -> Nothing
+
+listFromJson : (Json.Value -> Maybe a) -> Json.Value -> Maybe [a]
+listFromJson fromJson a = case a of
+    (Json.Array xs) -> Just <| justs <| map fromJson xs
+    _ -> Nothing
+
+type Transaction = { description : String
+                   , date : String -- TODO actual date type
+                   , amount : Int
+                   , tags : [String]
+                   }
+fromJsonTransaction : Json.Value -> Maybe Transaction
+fromJsonTransaction a = case a of
+    (Json.Object o) ->
+        let
+            tdescription = maybeBind stringFromJson <| get "description" o
+            tdate = maybeBind stringFromJson <| get "date" o
+            tamount = maybeBind intFromJson <| get "amount" o
+            ttags = maybeBind (listFromJson stringFromJson) <| get "tags" o
+        in
+            maybeBind (\ttdescription ->
+                maybeBind (\ttdate ->
+                    maybeBind (\ttamount ->
+                        maybeBind (\tttags ->
+                            Just { description = ttdescription
+                                 , date = ttdate
+                                 , amount = ttamount
+                                 , tags = tttags
+                                 }) ttags
+                              ) tamount
+                          ) tdate
+                      ) tdescription
+    _ -> Nothing
