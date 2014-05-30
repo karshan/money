@@ -23,6 +23,8 @@ data Transaction = Transaction { description :: String
 -- with Aeson none of this instance code is required
 -- though it "could" be cleaned up
 instance JSON Transaction where
+    -- It may not be immediately obvious that if any of the jslookup's fail the whole
+    -- thing will return an Error because of the monad instance of Result
     readJSON (JSObject o) = let l = fromJSObject o
         in do desc <- jslookup "description" l
               dt <- jslookup "date" l

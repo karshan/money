@@ -25,18 +25,19 @@ fromJsonTransaction a = case a of
             tamount = maybeBind intFromJson <| get "amount" o
             ttags = maybeBind (listFromJson stringFromJson) <| get "tags" o
         in
-            maybeBind (\ttdescription ->
-                maybeBind (\ttdate ->
-                    maybeBind (\ttamount ->
-                        maybeBind (\tttags ->
+            (\ttdescription ->
+                (\ttdate ->
+                    (\ttamount ->
+                        (\tttags ->
                             Just { description = ttdescription
                                  , date = ttdate
                                  , amount = ttamount
                                  , tags = tttags
-                                 }) ttags
-                              ) tamount
-                          ) tdate
-                      ) tdescription
+                                 }
+                        ) `maybeBind` ttags
+                    ) `maybeBind` tamount
+                ) `maybeBind` tdate
+            ) `maybeBind` tdescription
     _ -> Nothing
 
 transactions : Signal (Response String)

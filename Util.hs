@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Util
     ( (?)
+    , index
     , maybeRead
     , listApp
     , window
@@ -28,6 +29,11 @@ import Text.JSON (JSON, Result(..), decodeStrict, encodeStrict)
 (?) :: Bool -> a -> a -> a
 (?) True  x _ = x
 (?) False _ y = y
+
+index :: [a] -> Int -> Maybe a
+index [] _ = Nothing
+index (x:_) 0 = Just x
+index (_:xs) n = index xs (n - 1)
 
 maybeRead :: Read a => String -> Maybe a
 maybeRead = fmap fst . listToMaybe . reads
