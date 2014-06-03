@@ -10,8 +10,8 @@ type Transaction = { description : String
                    , tags : [String]
                    }
 
-renderTransactions : Json.Value -> Maybe Element
-renderTransactions json = ((flow down) . map renderTransaction) `maybeFmap` listFromJson fromJsonTransaction json
+renderTransactions : [Transaction] -> Element
+renderTransactions ts = flow down <| map renderTransaction ts
 
 renderTransaction : Transaction -> Element
 renderTransaction t = asText (t.description, t.amount, t.date, t.tags)
@@ -40,10 +40,9 @@ fromJsonTransaction a = case a of
             ) `maybeBind` tdescription
     _ -> Nothing
 
-transactions : Signal (Response String)
-transactions = sendGet (constant "/transactions")
+transactions : Signal (Maybe [Transaction])
+transactions = let (=<<) = maybeBind in
+      (\a -> (listFromJson fromJsonTransaction) =<< (Json.fromString =<< responseToMaybe a)) <~ (sendGet (constant "/transactions"))
 
 main : Signal Element
-main = maybe (asText "ERROR") id <~ (maybeBind renderTransactions
-                                 <~ (maybeBind Json.fromString
-                                 <~ (responseToMaybe <~ transactions)))
+main = maybe (asText "ERROR") renderTransactions <~ transactions
