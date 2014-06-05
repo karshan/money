@@ -1,7 +1,9 @@
 import Json
 import JsonUtils (intFromJson, stringFromJson, listFromJson)
 import Model (Transaction, transactions)
-import View (renderTransactions)
+import View (renderTransactions, transactionClicks)
 
 main : Signal Element
-main = maybe (asText "ERROR") renderTransactions <~ transactions
+main = lift (flow down) <| combine [ asText <~ transactionClicks.signal
+                                   , (maybe (asText "ERROR") renderTransactions <~ transactions)
+                                   ]
