@@ -1,5 +1,6 @@
 import Json
 import JsonUtils (intFromJson, stringFromJson, listFromJson)
+import Inputs (transactionClicks)
 import Model (Transaction, transactions)
 import View (renderTransactions, transactionClicks)
 
