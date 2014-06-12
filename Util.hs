@@ -21,7 +21,7 @@ import Data.Conduit (($$))
 import Data.Conduit.List (consume)
 import Data.Maybe (listToMaybe)
 import Data.Monoid (mconcat)
-import Network.HTTP.Types (ok200, movedPermanently301)
+import Network.HTTP.Types (ok200, movedPermanently301, internalServerError500)
 import Network.HTTP.Types.Header (hContentType, hLocation)
 import Network.Wai (Request, Response, requestMethod, requestBody, responseLBS)
 import Text.JSON (JSON, Result(..), decodeStrict, encodeStrict)
@@ -71,6 +71,9 @@ jsonData req
 responseLBS' :: BS.ByteString -> LBS.ByteString -> Response
 responseLBS' c = responseLBS ok200 [(hContentType, c)]
 
+responseError :: String -> Response
+responseError = responseLBS internalServerError500 [(hContentType, "text/plain")] . LBS.pack
+
 responseString :: String -> Response
 responseString = responseLBS' "text/plain" . LBS.pack
 
@@ -85,4 +88,4 @@ result _ f (Ok a) = f a
 result f _ (Error s) = f s
 
 jsonApp :: (JSON a, JSON b) => (a -> IO b) -> Request -> IO Response
-jsonApp f req = jsonData req >>= result (return . responseString) (fmap responseJSON . f)
+jsonApp f req = jsonData req >>= result (return . responseError) (fmap responseJSON . f)
