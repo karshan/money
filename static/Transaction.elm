@@ -1,14 +1,11 @@
-module Model
-       ( Transaction
-       , fromJsonTransaction
-       , transactions
-       ) where
+module Transaction
+    ( Transaction
+    , transactionFromJson
+    ) where
 
+import Utils (intFromJson, stringFromJson, listFromJson, maybeBind)
 import Dict (get)
-import Http (sendGet)
 import Json
-import JsonUtils (listFromJson, stringFromJson, intFromJson)
-import Utils (responseToMaybe, maybeBind, maybeFmap)
 
 type Transaction = { description : String
                    , date : String -- TODO actual date type
@@ -16,8 +13,8 @@ type Transaction = { description : String
                    , tags : [String]
                    }
 
-fromJsonTransaction : Json.Value -> Maybe Transaction
-fromJsonTransaction a = case a of
+transactionFromJson : Json.Value -> Maybe Transaction
+transactionFromJson a = case a of
     (Json.Object o) ->
         let
             tdescription = maybeBind stringFromJson <| get "description" o
@@ -40,6 +37,3 @@ fromJsonTransaction a = case a of
             ) `maybeBind` tdescription
     _ -> Nothing
 
-transactions : Signal (Maybe [Transaction])
-transactions = let (>>=) = flip maybeBind in
-      (\a -> responseToMaybe a >>= Json.fromString >>= listFromJson fromJsonTransaction) <~ (sendGet (constant "/transactions"))
