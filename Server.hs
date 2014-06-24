@@ -25,7 +25,7 @@ app req = route (pathInfo req) $ req
 
 route :: [Text] -> Request -> IO Response
 route path
-    | null path = redirect "/static/build/Main.html"
+    | null path = redirect "/static/elm/build/Main.html"
     | head path == "static" = static
     | path == ["transactions"] = transactions
     | path == ["similar"] = similarTransactions
