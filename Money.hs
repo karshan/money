@@ -17,7 +17,7 @@ data Transaction = Transaction { description :: String
                                , date :: UTCTime
                                , amount :: Int
                                , tags :: [String]
-                               } deriving (Show, Eq)
+                               } deriving (Show, Eq, Ord)
 
 -- Database.CouchDB forces us to use Text.JSON tsk tsk
 -- with Aeson none of this instance code is required
@@ -47,11 +47,11 @@ instance JSON Transaction where
 
 instance JSON UTCTime where
     readJSON (JSString s) = maybeToResult "parseTime Failed" $ parseTime defaultTimeLocale "%m/%d/%Y" (fromJSString s)
-        where 
+        where
             maybeToResult :: String -> Maybe a -> Result a
             maybeToResult _ (Just a) = Ok a
             maybeToResult st Nothing = Error st
-    readJSON _ = Error "not string" 
+    readJSON _ = Error "not string"
     showJSON d = showJSON $ toJSString $ formatTime defaultTimeLocale "%m/%d/%Y" d
 
 {-
@@ -60,8 +60,8 @@ instance JSON UTCTime where
         "this is string 1" "here is another string"
         ["this", "is", ...] ["here", "is", ...]
         [["this", "is", "string", "1"], ["is", "string", "1"], ["string", "1"], ...] [["here", ...], ...]
-        
-        now these 2 lists of tails of words of the strings are matched against each other 
+
+        now these 2 lists of tails of words of the strings are matched against each other
 
         (["this", "is", "string", "1"] `match` ["here", "is", "another", "string"]) +
         (["this", "is", "string", "1"] `match` ["is", "another", "string"]) +
@@ -96,4 +96,4 @@ fuzzyMatchChecks = [ fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello 
 similarTransactions :: Transaction -> [Transaction] -> [(Double, Transaction)]
 similarTransactions t = reverse . sortBy (compare `on` fst) . map (\x -> (score x, x))
     where
-        score x = fuzzyMatch (description x) (description t) 
+        score x = fuzzyMatch (description x) (description t)
