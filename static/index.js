@@ -85,11 +85,18 @@ var renderEdit = function(t, ts) {
                                    , fwDiv(100, a[0], [['onclick', 'editTrClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
                                    ]));
     });
-    return util.html("div", [], [], JSON.stringify(t)) + util.html("div", [], [], _.concat(renderedts));
+    return   util.html("div", [], [], JSON.stringify(t))
+           + util.html("div", [], [], _.concat(renderedts))
+           + util.html("input", [["type", "text"], ["id", "edit_tag_in"]], [], "")
+           + util.html("button", [['onclick', util.jsonOnclick('editSubmitClick', "")]], [], "submit");
 };
 $R(function(t, ts) {
     $('#edit').html(renderEdit(t, ts));
 }).bindTo(editT, similarTS);
 var editTrClick = util.jsonFunc(function(t) {
-    similarTS(_.takeWhile(similarTS(), function(a) { return JSON.stringify(a[1]) !== JSON.stringify(t) }));
+    similarTS(_.takeWhile(similarTS(), function(a) { return !_.isEqual(a[1], t) }));
+});
+var editSubmitClick = util.jsonFunc(function() {
+    tags = $('#edit_tag_in').val();
+    util.jsonPost("/updateTags", { "ts": _.map(similarTS(), function(a) { return a[1]; }), "tags": tags }, function() { alert('done'); });
 });

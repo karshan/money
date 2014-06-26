@@ -50,6 +50,10 @@ util.jsonFunc = function(f) {
     };
 };
 
+util.jsonOnclick = function(fname, arg) {
+    return fname + '("' + btoa(JSON.stringify(arg)) + '")';
+};
+
 util.showPage = function(p, h) {
     if (h) { $('#' + p).html(h); }
     $('#' + p).show();

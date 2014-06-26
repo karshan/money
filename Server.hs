@@ -6,7 +6,7 @@ import Control.Monad (void)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
-import qualified ManageDB as MDB (getTransactions, addTransaction, deleteTransaction)
+import qualified ManageDB as MDB (getTransactions, addTransaction, deleteTransaction, updateTransaction)
 import qualified Money as M (Transaction, similarTransactions)
 import Network.HTTP.Types.Header (hContentLength)
 import Network.Wai (Request, Response, pathInfo)
@@ -31,6 +31,7 @@ route path
     | path == ["similar"] = similarTransactions
     | path == ["delete"] = deleteTransaction
     | path == ["add"] = addTransaction
+    | path == ["update"] = updateTransaction
     | otherwise = notFound
 
 notFound :: Request -> IO Response
@@ -60,3 +61,7 @@ deleteTransaction = jsonApp (void . MDB.deleteTransaction)
 -- TODO error reporting
 addTransaction :: Request -> IO Response
 addTransaction = jsonApp (void . MDB.addTransaction)
+
+-- TODO error reporting
+updateTransaction :: Request -> IO Response
+updateTransaction = jsonApp (\a -> if length a == 2 then void $ MDB.updateTransaction (a !! 0) (a !! 1) else return ())

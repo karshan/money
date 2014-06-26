@@ -1,10 +1,11 @@
-module ManageDB 
+module ManageDB
     ( ManageDB.init
     , dropDatabase
     , addTransaction
     , getTransactions
     , addTransactions
     , deleteTransaction
+    , updateTransaction
     )
     where
 
@@ -48,7 +49,7 @@ theDoc = doc docName
 -- This exists solely because couchdb documents must be json objects
 data Transactions = Transactions [Transaction] deriving (Show, Eq)
 instance JSON Transactions where
-    readJSON (JSObject o) = fmap Transactions $ jslookup "transactions" $ fromJSObject o 
+    readJSON (JSObject o) = fmap Transactions $ jslookup "transactions" $ fromJSObject o
             where
                 jslookup k l = maybe (Error $ "missing key: " ++ k) readJSON (lookup k l)
     readJSON _ = Error "not an object"
@@ -58,8 +59,8 @@ instance JSON Transactions where
 -- TODO reimplement this as a Monad with runDB so that it
 -- is unnecessary to call init
 
--- If this fails CouchDB is down or the db already exists 
--- either way we don't care. (I guess we kinda care if 
+-- If this fails CouchDB is down or the db already exists
+-- either way we don't care. (I guess we kinda care if
 -- couchDB is down.... TODO)
 init :: IO ()
 init = cdb >> cdoc >> return ()
@@ -89,6 +90,9 @@ addTransactions ts = updateTransactions (ts ++)
 
 deleteTransaction :: Transaction -> IO (Maybe (Doc, Rev))
 deleteTransaction t = updateTransactions (delete t)
+
+updateTransaction :: Transaction -> Transaction -> IO (Maybe (Doc, Rev))
+updateTransaction old new = updateTransactions ((new:) . delete old)
 
 -- This is horrible. why doesn't isn't CouchMonad a Functor ?
 -- TODO clean this with something like >>= (\a -> a >>= b) for the maybe inside the monad
