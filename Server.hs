@@ -15,7 +15,6 @@ import Network.Wai (Request, Response, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Util (mapHeaders)
-import Text.JSON (Result(..), JSValue(..), JSON(..), toJSObject, fromJSObject, toJSString, fromJSString)
 import Util (jsonApp, redirect, responseJSON, responseString)
 
 main :: IO ()
@@ -70,17 +69,5 @@ addTransaction = jsonApp (void . MDB.addTransaction)
 updateTransaction :: Request -> IO Response
 updateTransaction = jsonApp (\a -> if length a == 2 then void $ MDB.updateTransaction (a !! 0) (a !! 1) else return ())
 
-data UpdateTags = UpdateTags { ut_ts :: [M.Transaction], ut_tags :: String }
-
-instance JSON UpdateTags where
-  readJSON (JSObject o) = let l = fromJSObject o in
-                              do _ts <- jslookup "ts" l
-                                 _tags <- jslookup "tags" l
-                                 return UpdateTags { ut_ts = _ts, ut_tags = _tags }
-                                   where
-                                     jslookup k l = maybe (Error $ "missing key: " ++ k) readJSON (lookup k l)
-  readJSON _ = Error "Not an object"
-  showJSON = undefined
-
 updateTags :: Request -> IO Response
-updateTags = jsonApp (\a -> void $ MDB.updateTransactions (\allts -> (allts \\ ut_ts a) ++ map (\t -> t { M.tags = splitOn " " (ut_tags a) }) (ut_ts a)))
+updateTags = jsonApp (\(sts, tags) -> void $ MDB.updateTransactions (\ats -> (ats \\ sts) ++ map (\t -> t { M.tags = splitOn " " tags }) sts))

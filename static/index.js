@@ -98,5 +98,5 @@ var editTrClick = util.jsonFunc(function(t) {
 });
 var editSubmitClick = util.jsonFunc(function() {
     tags = $('#edit_tag_in').val();
-    util.jsonPost("/updateTags", { "ts": _.map(similarTS(), function(a) { return a[1]; }), "tags": tags }, function() { alert('done'); });
+    util.jsonPost("/updateTags", [_.map(similarTS(), function(a) { return a[1]; }), tags], function() { alert('done'); });
 });
