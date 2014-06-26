@@ -66,3 +66,13 @@ _.concat = function(list) {
         return _.foldl(list, function(a, b) { return a.concat(b); });
     }
 };
+
+_.takeWhile = function(list, pred) {
+    var o = []
+    for (i in list) {
+        a = list[i];
+        if (pred(a) === false) break;
+        o.push(a);
+    }
+    return o;
+}

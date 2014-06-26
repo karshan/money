@@ -65,6 +65,10 @@ var renderTList = function(ts) {
 $R(function(ts) {
     $('#transaction_list').html(renderTList(ts));
 }).bindTo(TList);
+var trTagClick = util.jsonFunc(function(t) {
+    editT(t);
+    state(["edit"]);
+});
 
 var renderEdit = function(t, ts) {
     function showAmount(a) {
@@ -78,17 +82,14 @@ var renderEdit = function(t, ts) {
                                    , fwDiv(1000, t.description)
                                    , fwDiv(100, showAmount(t.amount))
                                    , fwDiv(100, JSON.stringify(t.tags))
-                                   , fwDiv(100, a[0])
+                                   , fwDiv(100, a[0], [['onclick', 'editTrClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
                                    ]));
     });
     return util.html("div", [], [], JSON.stringify(t)) + util.html("div", [], [], _.concat(renderedts));
 };
-
 $R(function(t, ts) {
     $('#edit').html(renderEdit(t, ts));
 }).bindTo(editT, similarTS);
-
-var trTagClick = util.jsonFunc(function(t) {
-    editT(t);
-    state(["edit"]);
+var editTrClick = util.jsonFunc(function(t) {
+    similarTS(_.takeWhile(similarTS(), function(a) { return JSON.stringify(a[1]) !== JSON.stringify(t) }));
 });
