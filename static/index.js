@@ -18,6 +18,14 @@ function wDiv(w, c, a, s) {
     return util.html("div", a, [["width", w + "px"]].concat(commonStyle).concat(s), c);
 }
 
+function showAmount(a) {
+    return (a/100) + "";
+}
+
+function showTags(tags) {
+    return "[" + _.concat(_.intersperse(tags, ", ")) + "]";
+}
+
 window.onload = function() {
     function renderNavBar() {
         return wDiv(1920, fwDiv(100, "TList", [['onclick', 'state(["tlist"]);']]));
@@ -44,23 +52,22 @@ var state = $R(function(s) {
 });
 
 var renderTList = function(ts) {
-    function showAmount(a) {
-        return (a/100) + "";
-    }
-
     function balance(a) {
         return _.foldl(a, function(s, e) { return s + e.amount; }, 0);
     }
 
-    // renderedts :: [String]
-    var renderedts = _.map(ts, function(t) {
-        return wDiv(1920, _.concat([ fwDiv(100, t.date)
-                                   , fwDiv(1000, t.description)
-                                   , fwDiv(100, showAmount(t.amount))
-                                   , fwDiv(100, JSON.stringify(t.tags), [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
-                                   ]));
-    });
-    return renderedts;
+    // renderedts :: String
+    var renderedts = _.concat(_.map(ts, function(ts_month) {
+        return _.concat(_.map(ts_month, function(t) {
+            return wDiv(1920, _.concat([ fwDiv(100, t.date)
+                                       , fwDiv(1000, t.description)
+                                       , fwDiv(100, showAmount(t.amount))
+                                       , fwDiv(100, showTags(t.tags), [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
+                                       ]));
+        })) + util.html("div", [], [], "&nbsp;");
+    }));
+    return   util.html("div", [], [], "Balance: " + showAmount(balance(_.concat(ts))))
+           + util.html("div", [], [], renderedts)
 };
 $R(function(ts) {
     $('#transaction_list').html(renderTList(ts));
@@ -71,22 +78,18 @@ var trTagClick = util.jsonFunc(function(t) {
 });
 
 var renderEdit = function(t, ts) {
-    function showAmount(a) {
-        return (a/100) + "";
-    }
-
-    // renderedts :: [String]
-    var renderedts = _.map(ts, function(a) {
+    // renderedts :: String
+    var renderedts = _.concat(_.map(ts, function(a) {
         var t = a[1];
         return wDiv(1920, _.concat([ fwDiv(100, t.date)
                                    , fwDiv(1000, t.description)
                                    , fwDiv(100, showAmount(t.amount))
-                                   , fwDiv(100, JSON.stringify(t.tags))
+                                   , fwDiv(100, "[" + _.concat(_.intersperse(t.tags, ", ")) + "]")
                                    , fwDiv(100, a[0], [['onclick', 'editTrClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
                                    ]));
-    });
+    }));
     return   util.html("div", [], [], JSON.stringify(t))
-           + util.html("div", [], [], _.concat(renderedts))
+           + util.html("div", [], [], renderedts)
            + util.html("input", [["type", "text"], ["id", "edit_tag_in"]], [], "")
            + util.html("button", [['onclick', util.jsonOnclick('editSubmitClick', "")]], [], "submit");
 };

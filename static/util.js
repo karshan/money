@@ -74,9 +74,19 @@ _.concat = function(list) {
 _.takeWhile = function(list, pred) {
     var o = []
     for (i in list) {
-        a = list[i];
+        a = _.extend(list[i], {});
         if (pred(a) === false) break;
         o.push(a);
     }
     return o;
-}
+};
+
+_.intersperse = function(list, e) {
+    if (list.length === 0) return [];
+    out = [_.extend(list[0], {})]
+    for (var i = 1; i < list.length; i++) {
+        out.push(_.extend(e, {}));
+        out.push(_.extend(list[i], {}));
+    }
+    return out;
+};

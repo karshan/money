@@ -12,6 +12,7 @@ module Util
     , responseJSON
     , redirect
     , jsonApp
+    , splitOnPred
     ) where
 
 import Control.Applicative ((<$>))
@@ -19,6 +20,7 @@ import qualified Data.ByteString.Char8 as BS (ByteString, unpack, pack)
 import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString, pack)
 import Data.Conduit (($$))
 import Data.Conduit.List (consume)
+import Data.List (elemIndices)
 import Data.Maybe (listToMaybe)
 import Data.Monoid (mconcat)
 import Network.HTTP.Types (ok200, movedPermanently301, internalServerError500)
@@ -59,6 +61,16 @@ splitOnIndices :: [Int] -> [a] -> [[a]]
 splitOnIndices is xs = mapTail (drop (1 :: Int)) $ map (\a -> listApp substr a xs) $ window 2 is'
     where
         is' = 0:is ++ [length xs]
+
+splitOnPred :: (a -> a -> Bool) -> [a] -> [[a]]
+splitOnPred p xs = splitOnIndices (elemIndices True $ map (listApp p) (window 2 xs)) xs
+{-
+    where
+        splitOnPred' :: (a -> a -> Bool) ->
+        splitOnPred' _ [] acc = [acc]
+        splitOnPred' _ (x:[]) = [[x]]
+        splitOnPred' p (x:y:xs) = if p x y then [[x]] ++ splitOnPred p (y:xs) else
+-}
 
 rawRequestBody :: Request -> IO BS.ByteString
 rawRequestBody req = mconcat <$> (requestBody req $$ consume)

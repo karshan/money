@@ -73,7 +73,7 @@ init = cdb >> cdoc >> return ()
 dropDatabase :: IO ()
 dropDatabase = void $ runCouchDB' $ dropDB dbName
 
--- TODO clean this with something like >>= (\a -> a >>= b) for the maybe inside the monad
+-- TODO use MaybeT IO a instead of IO (Maybe a)
 updateTransactions :: ([Transaction] -> [Transaction]) -> IO (Maybe (Doc, Rev))
 updateTransactions f = runCouchDB' $ (getDoc thedb theDoc) >>= go
     where
@@ -96,7 +96,6 @@ updateTransaction :: Transaction -> Transaction -> IO (Maybe (Doc, Rev))
 updateTransaction old new = updateTransactions ((new:) . delete old)
 
 -- This is horrible. why doesn't isn't CouchMonad a Functor ?
--- TODO clean this with something like >>= (\a -> a >>= b) for the maybe inside the monad
 getTransactions :: IO (Maybe [Transaction])
 getTransactions = runCouchDB' $ getDoc thedb theDoc >>= unwrapTransactions
     where

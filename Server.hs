@@ -3,19 +3,22 @@ module Main where
 
 import Control.Applicative ((<$>))
 import Control.Monad (void)
-import Data.List ((\\))
+import Data.Function (on)
+import Data.List ((\\), sortBy)
 import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
+import Data.Time.Calendar (toGregorian)
+import Data.Time.Clock (utctDay)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
 import qualified ManageDB as MDB (getTransactions, addTransaction, deleteTransaction, updateTransaction, updateTransactions)
-import qualified Money as M (Transaction, tags, similarTransactions)
+import qualified Money as M (Transaction, tags, date, similarTransactions)
 import Network.HTTP.Types.Header (hContentLength)
 import Network.Wai (Request, Response, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Util (mapHeaders)
-import Util (jsonApp, redirect, responseJSON, responseString)
+import Util (jsonApp, redirect, responseJSON, responseString, splitOnPred)
 
 main :: IO ()
 main = putStrLn ("Listening on port " ++ show port) >> run port app
@@ -51,8 +54,15 @@ static req = fmap (mapHeaders (filter (\(k,_) -> k /= hContentLength))) $ a (req
 ts :: IO [M.Transaction]
 ts = fromMaybe [] <$> MDB.getTransactions
 
+-- return transactions grouped by month
 transactions :: Request -> IO Response
-transactions _ = fmap responseJSON ts
+transactions _ = (responseJSON . groupEm) <$> ts
+    where
+        groupEm :: [M.Transaction] -> [[M.Transaction]]
+        groupEm = splitOnPred ((/=) `on` month) . reverse . sortBy (compare `on` M.date)
+            where
+                month :: M.Transaction -> Int
+                month = (\(_,m,_) -> m) . toGregorian . utctDay . M.date
 
 similarTransactions :: Request -> IO Response
 similarTransactions = jsonApp (\t -> M.similarTransactions t <$> ts)
@@ -70,4 +80,5 @@ updateTransaction :: Request -> IO Response
 updateTransaction = jsonApp (\a -> if length a == 2 then void $ MDB.updateTransaction (a !! 0) (a !! 1) else return ())
 
 updateTags :: Request -> IO Response
-updateTags = jsonApp (\(sts, tags) -> void $ MDB.updateTransactions (\ats -> (ats \\ sts) ++ map (\t -> t { M.tags = splitOn " " tags }) sts))
+updateTags = jsonApp $ \(sts, tags) -> void $ MDB.updateTransactions $
+                            \ats -> (ats \\ sts) ++ map (\t -> t { M.tags = splitOn " " tags }) sts
