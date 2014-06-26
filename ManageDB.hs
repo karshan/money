@@ -6,6 +6,7 @@ module ManageDB
     , addTransactions
     , deleteTransaction
     , updateTransaction
+    , updateTransactions
     )
     where
 
