@@ -121,9 +121,9 @@ var renderTList = function(ts) {
             /* String */
             return _.concatMap(ts_tags /* [Transaction] */, function(t) {
                 return wDiv(1920, _.concat([ fwDiv(100, t.date)
-                                    , fwDiv(1000, t.description)
+                                    , fwDiv(1000, t.description, [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
                                     , fwDiv(100, showAmount(t.amount))
-                                    , fwDiv(500, showTags(t.tags), [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
+                                    , fwDiv(500, showTags(t.tags))
                                     ]));
             });
         })));
@@ -144,14 +144,12 @@ var renderEdit = function(t, ts) {
     var renderedts = _.concat(_.map(ts, function(a) {
         var t = a[1];
         return wDiv(1920, _.concat([ fwDiv(100, t.date)
-                                   , fwDiv(1000, t.description)
+                                   , fwDiv(1000, t.description, [['onclick', 'editTrClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
                                    , fwDiv(100, showAmount(t.amount))
                                    , fwDiv(100, showTags(t.tags))
-                                   , fwDiv(500, a[0], [['onclick', 'editTrClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
                                    ]));
     }));
-    return   util.html("div", [], [], JSON.stringify(t))
-           + util.html("div", [], [], renderedts)
+    return   util.html("div", [], [], renderedts)
            + util.html("input", [["type", "text"], ["id", "edit_tag_in"]], [], "")
            + util.html("button", [['onclick', util.jsonOnclick('editSubmitClick', "")]], [], "submit");
 };
