@@ -2,7 +2,7 @@
 module Main where
 
 import Control.Applicative ((<$>))
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Data.List ((\\))
 import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe)
@@ -23,7 +23,7 @@ main = putStrLn ("Listening on port " ++ show port) >> run port app
         port = 3000
 
 app :: Request -> IO Response
-app req = route (pathInfo req) $ req
+app req = route (pathInfo req) req
 
 route :: [Text] -> Request -> IO Response
 route path
@@ -39,12 +39,12 @@ route path
     | otherwise = notFound
 
 notFound :: Request -> IO Response
-notFound req = return $ responseString $ "not found " ++ (show $ pathInfo req)
+notFound req = return $ responseString $ "not found " ++ show (pathInfo req)
 
 -- assumes request pathInfo is non-empty. Verified since its checked in route.
 -- It would be nice if the compiler could make that guarantee.
 static :: Request -> IO Response
-static req = fmap (mapHeaders (filter (\(k,_) -> k /= hContentLength))) $ a (req { pathInfo = tail (pathInfo req) })
+static req = mapHeaders (filter (\(k,_) -> k /= hContentLength)) <$> a (req { pathInfo = tail (pathInfo req) })
     where
         a = staticApp $ defaultWebAppSettings $ FP.decodeString "./static"
 
@@ -73,7 +73,7 @@ addTransaction = jsonApp (void . MDB.addTransaction)
 
 -- TODO error reporting
 updateTransaction :: Request -> IO Response
-updateTransaction = jsonApp (\a -> if length a == 2 then void $ MDB.updateTransaction (a !! 0) (a !! 1) else return ())
+updateTransaction = jsonApp (\a -> when (length a == 2) $ void $ MDB.updateTransaction (a !! 0) (a !! 1))
 
 updateTags :: Request -> IO Response
 updateTags = jsonApp $ \(sts, tags) -> void $ MDB.updateTransactions $
