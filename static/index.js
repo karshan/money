@@ -1,6 +1,4 @@
 commonStyle = [ ["height", "18px"]
-              , ["padding", "0px"]
-              , ["margin", "0px"]
               , ["visibility", "visible"]
               , ["pointer-events", "auto"]
               , ["text-align", "left"]
@@ -56,7 +54,7 @@ window.onload = function() {
     function renderNavBar() {
         return wDiv(1920, _.concat([ fwDiv(100, "Overview", [['onclick', 'state(["overview"]);']], [['cursor', 'pointer']])
                                    , fwDiv(100, "TList", [['onclick', 'state(["tlist"]);']], [['cursor', 'pointer']])
-                                   ]));
+                                   ]), [], [['margin-bottom', '10px']]);
     }
     $('#navbar').html(renderNavBar());
 
@@ -86,20 +84,18 @@ var renderOverview = function(ts) {
         return _.foldl(a, function(s, e) { return s + e.amount; }, 0);
     }
 
-
     // renderedts :: String
     var renderedts =
     _.concatMap(ts /* [[[Transaction]]] */, function(ts_month) {
-        /* String */
-        return util.html("div", [], [], monthYear(ts_month[0][0].date)) +
-        _.concatMap(ts_month /* [[Transaction]] */, function(ts_tags) {
-            /* String */
+        return wDiv(1920, _.concat([ fwDiv(500, monthYear(ts_month[0][0].date))
+                                   , fwDiv(500, showAmount(balance(_.concat(ts_month))))
+                                   ]), [], [['margin-top', '15px'], ['margin-bottom', '10px']]) + _.concatMap(ts_month /* [[Transaction]] */, function(ts_tags) {
             return wDiv(1920, _.concat([ fwDiv(500, showTags(ts_tags[0].tags))
                                        , fwDiv(500, showAmount(balance(ts_tags)))
                                        ]));
         });
     });
-    return   util.html("div", [], [], "Balance: " + showAmount(balance(_.concat(_.concat(ts)))))
+    return   util.html("div", [], [['margin-bottom', '10px']], "Balance: " + showAmount(balance(_.concat(_.concat(ts)))))
            + util.html("div", [], [], renderedts)
 };
 
@@ -116,9 +112,7 @@ var renderTList = function(ts) {
     // renderedts :: String
     var renderedts =
     _.concat(_.intersperse(bsDiv(), _.map(ts /* [[[Transaction]]] */, function(ts_month) {
-        /* String */
         return _.concat(_.intersperse(sDiv(), _.map(ts_month /* [[Transaction]] */, function(ts_tags) {
-            /* String */
             return _.concatMap(ts_tags /* [Transaction] */, function(t) {
                 return wDiv(1920, _.concat([ fwDiv(100, t.date)
                                     , fwDiv(1000, t.description, [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
