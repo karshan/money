@@ -3,18 +3,22 @@ module ParseCSV
     (
       parseDebit
     , parseCredit
+    , parseTCF
     )
     where
 
 import Control.Applicative ((<$>), (<*>))
 import Data.Char (isSpace)
-import Data.List (elemIndices, isInfixOf)
+import Data.List (elemIndices, isPrefixOf, isInfixOf)
+import Data.List.Split (splitOn)
 import Data.Maybe (mapMaybe)
 import Data.Time (UTCTime(..))
 import qualified Data.Time.Format as TF (parseTime)
 import Money (Transaction(..))
 import System.Locale (defaultTimeLocale)
 import Util ((?), maybeRead, splitOnIndices, count, index)
+
+--TODO reimplement with Parsec
 
 --TODO generalize,parameterize ?
 splitOnNonEscapedCommas :: String -> [String]
@@ -27,6 +31,9 @@ parseAmount :: String -> Maybe Int
 parseAmount a = ((ceiling :: Float -> Int) . (*100)) <$> (maybeRead $ filter (/='"') a)
 parseTime :: String -> Maybe UTCTime
 parseTime = TF.parseTime defaultTimeLocale "%m/%d/%Y"
+
+parseTime' :: String -> Maybe UTCTime
+parseTime' = TF.parseTime defaultTimeLocale "%Y-%m-%d"
 
 -- Converts bank of america debit card csv output into [Transaction] Type
 -- TODO cleanup var names
@@ -63,8 +70,23 @@ parseCredit s = mapMaybe recordToTransaction records
                                , tags = []
                                }
 
-transactions :: IO [Transaction]
-transactions = parseCredit <$> readFile "/home/karshan/gits/money/currentTransaction_3372.csv"
+parseTCF :: String -> [Transaction]
+parseTCF s = mapMaybe csvRecordToTransaction tRecords
+    where
+        tRecords = tail csvRecords
+        csvRecords = map splitOnNonEscapedCommas $ tail $ dropWhile (not . ("CHECKING" `isPrefixOf`)) $ lines s
+        -- this code assumes a particular csv header "Date,Description,Amount,Running Bal."
+        csvRecordToTransaction :: [String] -> Maybe Transaction
+        csvRecordToTransaction t = do
+            _date <- (parseTime' . head . splitOn " ") =<< t `index` 0
+            _description <- t `index` 1
+            _isDebit <- (== "Debit") <$> t `index` 8
+            _amount <- (\a -> if _isDebit then negate a else a) <$> (parseAmount =<< t `index` 2)
+            return Transaction { description = _description
+                               , date = _date
+                               , amount = _amount
+                               , tags = []
+                               }
 
 -- The point of this function is to convert transaction descriptions into
 -- usefully unique transactions description. Eventually want something like
