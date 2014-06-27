@@ -39,6 +39,7 @@ util.jsonPost = function(url, d, cb) {
 };
 
 util.html = function(tag, attrs, style, contents) {
+    // TODO conditionally include style=
     return "<" + tag + " " + _.concat(_.map(attrs, function(a) { return a[0] + "=" + a[1] + " "; }))
                + 'style="' + _.concat(_.map(style, function(a) { return a[0] + ": " + a[1] + "; "; })) + '">'
                + contents + "</" + tag + ">";
@@ -71,6 +72,10 @@ _.concat = function(list) {
     }
 };
 
+_.concatMap = function(list, f) {
+    return _.concat(_.map(list, f));
+};
+
 _.takeWhile = function(list, pred) {
     var o = []
     for (i in list) {
@@ -81,7 +86,7 @@ _.takeWhile = function(list, pred) {
     return o;
 };
 
-_.intersperse = function(list, e) {
+_.intersperse = function(e, list) {
     if (list.length === 0) return [];
     out = [_.extend(list[0], {})]
     for (var i = 1; i < list.length; i++) {

@@ -3,22 +3,19 @@ module Main where
 
 import Control.Applicative ((<$>))
 import Control.Monad (void)
-import Data.Function (on)
-import Data.List ((\\), sortBy)
+import Data.List ((\\))
 import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import Data.Time.Calendar (toGregorian)
-import Data.Time.Clock (utctDay)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
 import qualified ManageDB as MDB (getTransactions, addTransaction, deleteTransaction, updateTransaction, updateTransactions)
-import qualified Money as M (Transaction, tags, date, similarTransactions)
+import qualified Money as M (Transaction, tags, similarTransactions, sortAndGroup)
 import Network.HTTP.Types.Header (hContentLength)
 import Network.Wai (Request, Response, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Util (mapHeaders)
-import Util (jsonApp, redirect, responseJSON, responseString, splitOnPred)
+import Util (jsonApp, redirect, responseJSON, responseString)
 
 main :: IO ()
 main = putStrLn ("Listening on port " ++ show port) >> run port app
@@ -33,6 +30,7 @@ route path
     | null path = redirect "/static/index.html"
     | head path == "static" = static
     | path == ["transactions"] = transactions
+    | path == ["groupedTransactions"] = groupedTransactions
     | path == ["similar"] = similarTransactions
     | path == ["delete"] = deleteTransaction
     | path == ["add"] = addTransaction
@@ -54,15 +52,13 @@ static req = fmap (mapHeaders (filter (\(k,_) -> k /= hContentLength))) $ a (req
 ts :: IO [M.Transaction]
 ts = fromMaybe [] <$> MDB.getTransactions
 
--- return transactions grouped by month
 transactions :: Request -> IO Response
-transactions _ = (responseJSON . groupEm) <$> ts
-    where
-        groupEm :: [M.Transaction] -> [[M.Transaction]]
-        groupEm = splitOnPred ((/=) `on` month) . reverse . sortBy (compare `on` M.date)
-            where
-                month :: M.Transaction -> Int
-                month = (\(_,m,_) -> m) . toGregorian . utctDay . M.date
+transactions _ = responseJSON <$> ts
+
+-- return transactions grouped by month and tags. Sorted chronologically, most recent first
+-- [[[tags = a, month = 9], [tags = b, month = 9] ... ], [[tags = a, month = 8], [tags = b, month = 8] ... ] ... ]
+groupedTransactions :: Request -> IO Response
+groupedTransactions _ = (responseJSON . M.sortAndGroup) <$> ts
 
 similarTransactions :: Request -> IO Response
 similarTransactions = jsonApp (\t -> M.similarTransactions t <$> ts)

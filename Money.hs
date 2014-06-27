@@ -2,12 +2,16 @@ module Money
     (
       Transaction(..)
     , similarTransactions
+    , sortAndGroup
     )
     where
 
 import Data.Function (on)
-import Data.List (tails, sortBy)
+import Data.List (tails, sortBy, groupBy)
+import qualified Data.Set as Set (fromList)
 import Data.Time (UTCTime)
+import Data.Time.Calendar (toGregorian)
+import Data.Time.Clock (utctDay)
 import Data.Time.Format (parseTime, formatTime)
 import Util (listApp, count)
 import System.Locale (defaultTimeLocale)
@@ -97,3 +101,14 @@ similarTransactions :: Transaction -> [Transaction] -> [(Double, Transaction)]
 similarTransactions t = reverse . sortBy (compare `on` fst) . map (\x -> (score x, x))
     where
         score x = fuzzyMatch (description x) (description t)
+
+sortAndGroup :: [Transaction] -> [[[Transaction]]]
+sortAndGroup = map sortGroupTags . sortGroupMonth
+    where
+        sortGroupMonth :: [Transaction] -> [[Transaction]]
+        sortGroupMonth = groupBy ((==) `on` month) . reverse . sortBy (compare `on` date)
+            where
+                month :: Transaction -> Int
+                month = (\(_,m,_) -> m) . toGregorian . utctDay . date
+        sortGroupTags :: [Transaction] -> [[Transaction]]
+        sortGroupTags = groupBy ((==) `on` (Set.fromList . tags)) . sortBy (compare `on` (Set.fromList . tags))

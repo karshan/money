@@ -6,6 +6,12 @@ commonStyle = [ ["height", "18px"]
               , ["text-align", "left"]
               ];
 
+function sDiv(a, s) {
+    a = a || [];
+    s = s || [];
+    return util.html("div", a, s, "&nbsp;");
+}
+
 function fwDiv(w, c, a, s) {
     a = a || [];
     s = s || [];
@@ -23,7 +29,7 @@ function showAmount(a) {
 }
 
 function showTags(tags) {
-    return "[" + _.concat(_.intersperse(tags, ", ")) + "]";
+    return "[" + _.concat(_.intersperse(", ", tags)) + "]";
 }
 
 window.onload = function() {
@@ -32,7 +38,7 @@ window.onload = function() {
     }
     $('#navbar').html(renderNavBar());
 
-    util.jsonGet("/transactions", function(ts) {
+    util.jsonGet("/groupedTransactions", function(ts) {
         TList(ts); // TODO handle null error
         state(["tlist"]);
     });
@@ -56,17 +62,26 @@ var renderTList = function(ts) {
         return _.foldl(a, function(s, e) { return s + e.amount; }, 0);
     }
 
+    function bsDiv() {
+        return sDiv([], [['background-color', 'black']]);
+    }
+
     // renderedts :: String
-    var renderedts = _.concat(_.map(ts, function(ts_month) {
-        return _.concat(_.map(ts_month, function(t) {
-            return wDiv(1920, _.concat([ fwDiv(100, t.date)
-                                       , fwDiv(1000, t.description)
-                                       , fwDiv(100, showAmount(t.amount))
-                                       , fwDiv(100, showTags(t.tags), [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
-                                       ]));
-        })) + util.html("div", [], [], "&nbsp;");
-    }));
-    return   util.html("div", [], [], "Balance: " + showAmount(balance(_.concat(ts))))
+    var renderedts =
+    _.concat(_.intersperse(bsDiv(), _.map(ts /* [[[Transaction]]] */, function(ts_month) {
+        /* String */
+        return _.concat(_.intersperse(sDiv(), _.map(ts_month /* [[Transaction]] */, function(ts_tags) {
+            /* String */
+            return _.concatMap(ts_tags /* [Transaction] */, function(t) {
+                return wDiv(1920, _.concat([ fwDiv(100, t.date)
+                                    , fwDiv(1000, t.description)
+                                    , fwDiv(100, showAmount(t.amount))
+                                    , fwDiv(500, showTags(t.tags), [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
+                                    ]));
+            });
+        })));
+    })));
+    return   util.html("div", [], [], "Balance: " + showAmount(balance(_.concat(_.concat(ts)))))
            + util.html("div", [], [], renderedts)
 };
 $R(function(ts) {
@@ -84,8 +99,8 @@ var renderEdit = function(t, ts) {
         return wDiv(1920, _.concat([ fwDiv(100, t.date)
                                    , fwDiv(1000, t.description)
                                    , fwDiv(100, showAmount(t.amount))
-                                   , fwDiv(100, "[" + _.concat(_.intersperse(t.tags, ", ")) + "]")
-                                   , fwDiv(100, a[0], [['onclick', 'editTrClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
+                                   , fwDiv(100, showTags(t.tags))
+                                   , fwDiv(500, a[0], [['onclick', 'editTrClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
                                    ]));
     }));
     return   util.html("div", [], [], JSON.stringify(t))

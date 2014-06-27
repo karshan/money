@@ -12,7 +12,6 @@ module Util
     , responseJSON
     , redirect
     , jsonApp
-    , splitOnPred
     ) where
 
 import Control.Applicative ((<$>))
@@ -46,6 +45,7 @@ listApp f ls = f (head ls) (last ls)
 mapTail :: (a -> a) -> [a] -> [a]
 mapTail f xs = head xs:map f (tail xs)
 
+-- this eats elements to make sure the output has elements all of length n
 window :: Int -> [a] -> [[a]]
 window _ [] = []
 window n xs = if length xs < n then [] else take n xs:window n (tail xs)
@@ -56,21 +56,13 @@ substr l u = take (u - l) . drop l
 count :: (Eq a) => a -> [a] -> Int
 count x = length . filter (==x)
 
+--TODO is should be a Set Int not a [Int]
 --TODO flip some burgers and get rid of the lambda
+-- works like Data.List.Split.splitOn, eats the elements at the indices to split on
 splitOnIndices :: [Int] -> [a] -> [[a]]
-splitOnIndices is xs = mapTail (drop (1 :: Int)) $ map (\a -> listApp substr a xs) $ window 2 is'
+splitOnIndices is xs = filter (not . null) $ mapTail (drop (1 :: Int)) $ map (\a -> listApp substr a xs) $ window 2 is'
     where
         is' = 0:is ++ [length xs]
-
-splitOnPred :: (a -> a -> Bool) -> [a] -> [[a]]
-splitOnPred p xs = splitOnIndices (elemIndices True $ map (listApp p) (window 2 xs)) xs
-{-
-    where
-        splitOnPred' :: (a -> a -> Bool) ->
-        splitOnPred' _ [] acc = [acc]
-        splitOnPred' _ (x:[]) = [[x]]
-        splitOnPred' p (x:y:xs) = if p x y then [[x]] ++ splitOnPred p (y:xs) else
--}
 
 rawRequestBody :: Request -> IO BS.ByteString
 rawRequestBody req = mconcat <$> (requestBody req $$ consume)
