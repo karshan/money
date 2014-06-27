@@ -32,15 +32,37 @@ function showTags(tags) {
     return "[" + _.concat(_.intersperse(", ", tags)) + "]";
 }
 
+function showMonth(m) {
+    return [ "Jan"
+           , "Feb"
+           , "Mar"
+           , "Apr"
+           , "May"
+           , "Jun"
+           , "Jul"
+           , "Aug"
+           , "Sep"
+           , "Oct"
+           , "Nov"
+           , "Dec"
+           ][m - 1]
+}
+
+function monthYear(d) {
+    return showMonth(parseInt(d.substr(0, 2))) + " " + d.substr(6,8);
+}
+
 window.onload = function() {
     function renderNavBar() {
-        return wDiv(1920, fwDiv(100, "TList", [['onclick', 'state(["tlist"]);']]));
+        return wDiv(1920, _.concat([ fwDiv(100, "Overview", [['onclick', 'state(["overview"]);']], [['cursor', 'pointer']])
+                                   , fwDiv(100, "TList", [['onclick', 'state(["tlist"]);']], [['cursor', 'pointer']])
+                                   ]));
     }
     $('#navbar').html(renderNavBar());
 
     util.jsonGet("/groupedTransactions", function(ts) {
         TList(ts); // TODO handle null error
-        state(["tlist"]);
+        state(["overview"]);
     });
 };
 
@@ -54,8 +76,33 @@ var state = $R(function(s) {
     else if (s[0] == "edit") {
         util.jsonPost("/similar", editT(), function(a) { similarTS(a); });
         util.showPage("edit", renderEdit(editT(), similarTS()));
+    } else if (s[0] == "overview") {
+        util.showPage("overview", renderOverview(TList()));
     }
 });
+
+var renderOverview = function(ts) {
+    function balance(a) {
+        return _.foldl(a, function(s, e) { return s + e.amount; }, 0);
+    }
+
+
+    // renderedts :: String
+    var renderedts =
+    _.concatMap(ts /* [[[Transaction]]] */, function(ts_month) {
+        /* String */
+        return util.html("div", [], [], monthYear(ts_month[0][0].date)) +
+        _.concatMap(ts_month /* [[Transaction]] */, function(ts_tags) {
+            /* String */
+            return wDiv(1920, _.concat([ fwDiv(500, showTags(ts_tags[0].tags))
+                                       , fwDiv(500, showAmount(balance(ts_tags)))
+                                       ]));
+        });
+    });
+    return   util.html("div", [], [], "Balance: " + showAmount(balance(_.concat(_.concat(ts)))))
+           + util.html("div", [], [], renderedts)
+};
+
 
 var renderTList = function(ts) {
     function balance(a) {
