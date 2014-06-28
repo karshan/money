@@ -73,7 +73,7 @@ addTransaction = jsonApp (void . MDB.addTransaction)
 
 -- TODO error reporting
 updateTransaction :: Request -> IO Response
-updateTransaction = jsonApp (\a -> when (length a == 2) $ void $ MDB.updateTransaction (a !! 0) (a !! 1))
+updateTransaction = jsonApp (\a -> when (length a == 2) $ void $ MDB.updateTransaction (head a) (a !! 1))
 
 updateTags :: Request -> IO Response
 updateTags = jsonApp $ \(sts, tags) -> void $ MDB.updateTransactions $

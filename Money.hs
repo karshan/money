@@ -3,6 +3,7 @@ module Money
       Transaction(..)
     , similarTransactions
     , sortAndGroup
+    , fuzzyMatchChecks
     )
     where
 
@@ -49,6 +50,7 @@ instance JSON Transaction where
                                         , ("tags", showJSONs $ tags t)
                                        ]
 
+-- TODO newtype to avoid warning
 instance JSON UTCTime where
     readJSON (JSString s) = maybeToResult "parseTime Failed" $ parseTime defaultTimeLocale "%m/%d/%Y" (fromJSString s)
         where
@@ -98,7 +100,7 @@ fuzzyMatchChecks = [ fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello 
 
 -- TODO use Arrows ?
 similarTransactions :: Transaction -> [Transaction] -> [(Double, Transaction)]
-similarTransactions t = reverse . sortBy (compare `on` fst) . map (\x -> (score x, x))
+similarTransactions t = sortBy (flip compare `on` fst) . map (\x -> (score x, x))
     where
         score x = fuzzyMatch (description x) (description t)
 
@@ -106,7 +108,7 @@ sortAndGroup :: [Transaction] -> [[[Transaction]]]
 sortAndGroup = map sortGroupTags . sortGroupMonth
     where
         sortGroupMonth :: [Transaction] -> [[Transaction]]
-        sortGroupMonth = groupBy ((==) `on` month) . reverse . sortBy (compare `on` date)
+        sortGroupMonth = groupBy ((==) `on` month) . sortBy (flip compare `on` date)
             where
                 month :: Transaction -> Int
                 month = (\(_,m,_) -> m) . toGregorian . utctDay . date

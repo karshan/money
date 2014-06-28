@@ -1,10 +1,11 @@
 import ManageDB
 import Money
+import Data.Function (on)
 import Data.List
-import Data.Set (fromList)
+import qualified Data.Set as Set (fromList)
 
 similarTs :: Double -> [Transaction] -> [[Transaction]]
-similarTs cutoff ts = nubBy (\a b -> (fromList a) == (fromList b)) $ map (\a -> map snd $ filter (\(score, _) -> score > cutoff) $ similarTransactions a ts) ts
+similarTs cutoff ts = nubBy ((==) `on` Set.fromList) $ map (\a -> map snd $ filter (\(score, _) -> score > cutoff) $ similarTransactions a ts) ts
 
 main :: IO ()
 main = do

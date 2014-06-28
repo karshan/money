@@ -4,6 +4,7 @@ module ParseCSV
       parseDebit
     , parseCredit
     , parseTCF
+    , usefulDescription
     )
     where
 
@@ -28,7 +29,7 @@ splitOnNonEscapedCommas str = splitOnIndices splitIndices str
         splitIndices = filter (not . isEscapedCommaIndex) (elemIndices ',' str)
 
 parseAmount :: String -> Maybe Int
-parseAmount a = ((ceiling :: Float -> Int) . (*100)) <$> (maybeRead $ filter (/='"') a)
+parseAmount a = ((ceiling :: Float -> Int) . (*100)) <$> maybeRead  (filter (/='"') a)
 parseTime :: String -> Maybe UTCTime
 parseTime = TF.parseTime defaultTimeLocale "%m/%d/%Y"
 

@@ -75,7 +75,7 @@ dropDatabase = void $ runCouchDB' $ dropDB dbName
 
 -- TODO use MaybeT IO a instead of IO (Maybe a)
 updateTransactions :: ([Transaction] -> [Transaction]) -> IO (Maybe (Doc, Rev))
-updateTransactions f = runCouchDB' $ (getDoc thedb theDoc) >>= go
+updateTransactions f = runCouchDB' $ getDoc thedb theDoc >>= go
     where
         go :: Maybe (Doc, Rev, Transactions) -> CouchMonad (Maybe (Doc, Rev))
         go (Just (d, r, ts)) =  updateDoc thedb (d, r) (app ts)
