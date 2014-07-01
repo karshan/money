@@ -4,12 +4,14 @@ module Money
     , similarTransactions
     , sortAndGroup
     , fuzzyMatchChecks
+    , monthStats
     )
     where
 
 import Control.Applicative ((<$>))
 import Data.Function (on)
-import Data.List (tails, sortBy, groupBy)
+import Data.List (tails, sortBy, groupBy, foldl', genericLength)
+import qualified Data.Map as Map (Map, unionWith, map, intersectionWith, fromList, toList, fromListWith)
 import qualified Data.Set as Set (fromList)
 import Data.Time (UTCTime)
 import Data.Time.Calendar (toGregorian)
@@ -110,8 +112,29 @@ sortAndGroup = map sortGroupTags . sortGroupMonth
     where
         sortGroupMonth :: [Transaction] -> [[Transaction]]
         sortGroupMonth = groupBy ((==) `on` month) . sortBy (flip compare `on` date)
-            where
-                month :: Transaction -> Int
-                month = (\(_,m,_) -> m) . toGregorian . utctDay . runJUTCTime . date
         sortGroupTags :: [Transaction] -> [[Transaction]]
         sortGroupTags = groupBy ((==) `on` (Set.fromList . tags)) . sortBy (compare `on` (Set.fromList . tags))
+
+headDef :: a -> [a] -> a
+headDef d [] = d
+headDef _ (x:_) = x
+
+tag :: Transaction -> String
+tag = headDef "" . tags
+
+month :: Transaction -> Int
+month = (\(_,m,_) -> m) . toGregorian . utctDay . runJUTCTime . date
+
+monthStats :: [Transaction] -> [(String, Double)]
+monthStats ts = Map.toList $ Map.map meanWithoutOutliers $ foldl' (Map.intersectionWith (flip (:))) (emptyTagMapList ts) $ map (Map.unionWith (+) (emptyTagMap ts) . avgTag) (tsByMonth ts)
+    where
+        emptyTagMapList :: [Transaction] -> Map.Map String [Double]
+        emptyTagMapList = Map.fromList . map (\a -> (tag a, []))
+        emptyTagMap = Map.fromList . map (\a -> (tag a, 0))
+        tsByMonth = groupBy ((==) `on` month) . sortBy (compare `on` date)
+        avgTag = Map.map (uncurry (/)) . Map.fromListWith pairAdd . map transactionToPair
+        transactionToPair t = (tag t, (fromIntegral $ amount t, 1))
+        meanWithoutOutliers :: [Double] -> Double
+        meanWithoutOutliers [] = 0
+        meanWithoutOutliers xs = sum xs/genericLength xs
+        pairAdd (a1, b1) (a2, b2) = (a1 + a2, b1 + b2)

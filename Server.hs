@@ -9,12 +9,13 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
 import qualified ManageDB as MDB (getTransactions, addTransaction, deleteTransaction, updateTransaction, updateTransactions)
-import qualified Money as M (Transaction, tags, similarTransactions, sortAndGroup)
+import qualified Money as M (Transaction, tags, similarTransactions, sortAndGroup, monthStats)
 import Network.HTTP.Types.Header (hContentLength)
 import Network.Wai (Request, Response, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
 import Network.Wai.Util (mapHeaders)
+import Text.JSON (toJSObject)
 import Util (jsonApp, redirect, responseJSON, responseString)
 
 main :: IO ()
@@ -36,6 +37,7 @@ route path
     | path == ["add"] = addTransaction
     | path == ["update"] = updateTransaction
     | path == ["updateTags"] = updateTags
+    | path == ["monthStats"] = monthStats
     | otherwise = notFound
 
 notFound :: Request -> IO Response
@@ -78,3 +80,6 @@ updateTransaction = jsonApp (\a -> when (length a == 2) $ void $ MDB.updateTrans
 updateTags :: Request -> IO Response
 updateTags = jsonApp $ \(sts, tags) -> void $ MDB.updateTransactions $
                             \ats -> (ats \\ sts) ++ map (\t -> t { M.tags = splitOn " " tags }) sts
+
+monthStats :: Request -> IO Response
+monthStats _ = (responseJSON . toJSObject . M.monthStats) <$> ts
