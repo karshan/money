@@ -7,6 +7,7 @@ module Money
     )
     where
 
+import Control.Applicative ((<$>))
 import Data.Function (on)
 import Data.List (tails, sortBy, groupBy)
 import qualified Data.Set as Set (fromList)
@@ -19,7 +20,7 @@ import System.Locale (defaultTimeLocale)
 import Text.JSON (Result(..), JSValue(..), JSON(..), toJSObject, fromJSObject, toJSString, fromJSString)
 
 data Transaction = Transaction { description :: String
-                               , date :: UTCTime
+                               , date :: JUTCTime
                                , amount :: Int
                                , tags :: [String]
                                } deriving (Show, Eq, Ord)
@@ -50,15 +51,15 @@ instance JSON Transaction where
                                         , ("tags", showJSONs $ tags t)
                                        ]
 
--- TODO newtype to avoid warning
-instance JSON UTCTime where
-    readJSON (JSString s) = maybeToResult "parseTime Failed" $ parseTime defaultTimeLocale "%m/%d/%Y" (fromJSString s)
+newtype JUTCTime = JUTCTime { runJUTCTime :: UTCTime } deriving (Show, Eq, Ord)
+instance JSON JUTCTime where
+    readJSON (JSString s) = maybeToResult "parseTime Failed" $ JUTCTime <$> parseTime defaultTimeLocale "%m/%d/%Y" (fromJSString s)
         where
             maybeToResult :: String -> Maybe a -> Result a
             maybeToResult _ (Just a) = Ok a
             maybeToResult st Nothing = Error st
     readJSON _ = Error "not string"
-    showJSON d = showJSON $ toJSString $ formatTime defaultTimeLocale "%m/%d/%Y" d
+    showJSON d = showJSON $ toJSString $ formatTime defaultTimeLocale "%m/%d/%Y" (runJUTCTime d)
 
 {-
     fuzzy string matching for transaction descriptions
@@ -111,6 +112,6 @@ sortAndGroup = map sortGroupTags . sortGroupMonth
         sortGroupMonth = groupBy ((==) `on` month) . sortBy (flip compare `on` date)
             where
                 month :: Transaction -> Int
-                month = (\(_,m,_) -> m) . toGregorian . utctDay . date
+                month = (\(_,m,_) -> m) . toGregorian . utctDay . runJUTCTime . date
         sortGroupTags :: [Transaction] -> [[Transaction]]
         sortGroupTags = groupBy ((==) `on` (Set.fromList . tags)) . sortBy (compare `on` (Set.fromList . tags))
