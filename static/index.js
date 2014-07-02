@@ -58,71 +58,54 @@ window.onload = function() {
     }
     $('#navbar').html(renderNavBar());
 
-    util.jsonGet("/groupedTransactions", function(ts) {
-        TList(ts); // TODO handle null error
-        state(["overview"]);
-    });
+    state(["tlist"]);
 };
 
 var TList = $R.state(null);
+var monthStats = $R.state(null);
 var similarTS = $R.state(null);
 var editT = $R.state(null);
 
 var state = $R(function(s) {
+    var nop = function () {};
+
     util.clear();
-    if (s[0] == "tlist") { util.showPage("transaction_list", renderTList(TList())); }
+    if (s[0] == "tlist") { 
+        util.jsonGet("/transactions", TList);
+        util.showPage("transaction_list", nop);
+    }
     else if (s[0] == "edit") {
-        util.jsonPost("/similar", editT(), function(a) { similarTS(a); });
-        util.showPage("edit", renderEdit(editT(), similarTS()));
+        util.jsonPost("/similar", editT(), similarTS);
+        util.showPage("edit", nop);
     } else if (s[0] == "overview") {
-        util.showPage("overview", renderOverview(TList()));
+        util.jsonGet("/monthStats", monthStats);
+        util.showPage("overview", nop);
     }
 });
 
-var renderOverview = function(ts) {
-    function balance(a) {
-        return _.foldl(a, function(s, e) { return s + e.amount; }, 0);
-    }
-
-    // renderedts :: String
-    var renderedts =
-    _.concatMap(ts /* [[[Transaction]]] */, function(ts_month) {
-        return wDiv(1920, _.concat([ fwDiv(500, monthYear(ts_month[0][0].date))
-                                   , fwDiv(500, showAmount(balance(_.concat(ts_month))))
-                                   ]), [], [['margin-top', '15px'], ['margin-bottom', '10px']]) + _.concatMap(ts_month /* [[Transaction]] */, function(ts_tags) {
-            return wDiv(1920, _.concat([ fwDiv(500, showTags(ts_tags[0].tags))
-                                       , fwDiv(500, showAmount(balance(ts_tags)))
-                                       ]));
-        });
+var renderOverview = function(amountByTag) {
+    var rendered = _.concatMap(_.filter(_.pairs(amountByTag), function(a) { return a[1] !== 0; }), function(a) {
+        return wDiv(1920, _.concat([ fwDiv(500, showTags([a[0]]))
+                                   , fwDiv(500, showAmount(a[1]))
+                                   ]), [], []);
     });
-    return   util.html("div", [], [['margin-bottom', '10px']], "Balance: " + showAmount(balance(_.concat(_.concat(ts)))))
-           + util.html("div", [], [], renderedts)
+    return   util.html("div", [], [], "Median monthly expenditure")
+           + util.html("div", [], [], rendered);
 };
+$R(function(a) {
+    $('#overview').html(renderOverview(a));
+}).bindTo(monthStats);
 
 
 var renderTList = function(ts) {
-    function balance(a) {
-        return _.foldl(a, function(s, e) { return s + e.amount; }, 0);
-    }
-
-    function bsDiv() {
-        return sDiv([], [['background-color', 'black']]);
-    }
-
-    // renderedts :: String
-    var renderedts =
-    _.concat(_.intersperse(bsDiv(), _.map(ts /* [[[Transaction]]] */, function(ts_month) {
-        return _.concat(_.intersperse(sDiv(), _.map(ts_month /* [[Transaction]] */, function(ts_tags) {
-            return _.concatMap(ts_tags /* [Transaction] */, function(t) {
-                return wDiv(1920, _.concat([ fwDiv(100, t.date)
-                                    , fwDiv(1000, t.description, [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
-                                    , fwDiv(100, showAmount(t.amount))
-                                    , fwDiv(500, showTags(t.tags))
-                                    ]));
-            });
-        })));
-    })));
-    return   util.html("div", [], [], "Balance: " + showAmount(balance(_.concat(_.concat(ts)))))
+    var renderedts = _.concatMap(ts, function(t) {
+        return wDiv(1920, _.concat([ fwDiv(100, t.date)
+                                   , fwDiv(1000, t.description, [['onclick', 'trTagClick("' + btoa(JSON.stringify(t)) + '")']], [['cursor', 'pointer']])
+                                   , fwDiv(100, showAmount(t.amount))
+                                   , fwDiv(500, showTags(t.tags))
+                                   ]));
+    });
+    return   util.html("div", [], [], "Balance: " + showAmount(_.sum(_.map(ts, function(a) { return a.amount; }))))
            + util.html("div", [], [], renderedts)
 };
 $R(function(ts) {

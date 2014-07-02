@@ -2,7 +2,6 @@ module Money
     (
       Transaction(..)
     , similarTransactions
-    , sortAndGroup
     , fuzzyMatchChecks
     , monthStats
     , tag
@@ -15,7 +14,6 @@ import Data.Function (on)
 import Data.List (tails, sortBy, groupBy, foldl')
 import qualified Data.Map as Map (Map, unionWith, map, intersectionWith, fromList, toList, fromListWith)
 import Data.Maybe (listToMaybe, fromMaybe)
-import qualified Data.Set as Set (fromList)
 import Data.Time (UTCTime)
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock (utctDay)
@@ -115,14 +113,6 @@ similarTransactions :: Transaction -> [Transaction] -> [(Double, Transaction)]
 similarTransactions t = sortBy (flip compare `on` fst) . map (\x -> (score x, x))
     where
         score x = fuzzyMatch (description x) (description t)
-
-sortAndGroup :: [Transaction] -> [[[Transaction]]]
-sortAndGroup = map sortGroupTags . sortGroupMonth
-    where
-        sortGroupMonth :: [Transaction] -> [[Transaction]]
-        sortGroupMonth = groupBy ((==) `on` month) . sortBy (flip compare `on` date)
-        sortGroupTags :: [Transaction] -> [[Transaction]]
-        sortGroupTags = groupBy ((==) `on` (Set.fromList . tags)) . sortBy (compare `on` (Set.fromList . tags))
 
 monthStats :: [Transaction] -> [(String, Double)]
 monthStats ts = Map.toList $ Map.map median $ foldl' (Map.intersectionWith (flip (:))) (emptyTagMapList ts) $ map (Map.unionWith (+) (emptyTagMap ts) . amountPerTag) (tsByMonth ts)

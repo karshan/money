@@ -95,3 +95,7 @@ _.intersperse = function(e, list) {
     }
     return out;
 };
+
+_.sum = function(list) {
+    return _.foldl(list, function(s, e) { return s + e; }, 0);
+}

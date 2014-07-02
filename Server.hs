@@ -9,7 +9,7 @@ import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import qualified Filesystem.Path.CurrentOS as FP (decodeString)
 import qualified ManageDB as MDB (getTransactions, addTransaction, deleteTransaction, updateTransaction, updateTransactions)
-import qualified Money as M (Transaction, tags, similarTransactions, sortAndGroup, monthStats)
+import qualified Money as M (Transaction, tags, similarTransactions, monthStats)
 import Network.HTTP.Types.Header (hContentLength)
 import Network.Wai (Request, Response, pathInfo)
 import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
@@ -31,7 +31,6 @@ route path
     | null path = redirect "/static/index.html"
     | head path == "static" = static
     | path == ["transactions"] = transactions
-    | path == ["groupedTransactions"] = groupedTransactions
     | path == ["similar"] = similarTransactions
     | path == ["delete"] = deleteTransaction
     | path == ["add"] = addTransaction
@@ -56,11 +55,6 @@ ts = fromMaybe [] <$> MDB.getTransactions
 
 transactions :: Request -> IO Response
 transactions _ = responseJSON <$> ts
-
--- return transactions grouped by month and tags. Sorted chronologically, most recent first
--- [[[tags = a, month = 9], [tags = b, month = 9] ... ], [[tags = a, month = 8], [tags = b, month = 8] ... ] ... ]
-groupedTransactions :: Request -> IO Response
-groupedTransactions _ = (responseJSON . M.sortAndGroup) <$> ts
 
 similarTransactions :: Request -> IO Response
 similarTransactions = jsonApp (\t -> M.similarTransactions t <$> ts)
