@@ -5,19 +5,22 @@ module Money
     , sortAndGroup
     , fuzzyMatchChecks
     , monthStats
+    , tag
+    , month
     )
     where
 
 import Control.Applicative ((<$>))
 import Data.Function (on)
-import Data.List (sort, tails, sortBy, groupBy, foldl')
+import Data.List (tails, sortBy, groupBy, foldl')
 import qualified Data.Map as Map (Map, unionWith, map, intersectionWith, fromList, toList, fromListWith)
+import Data.Maybe (listToMaybe, fromMaybe)
 import qualified Data.Set as Set (fromList)
 import Data.Time (UTCTime)
 import Data.Time.Calendar (toGregorian)
 import Data.Time.Clock (utctDay)
 import Data.Time.Format (parseTime, formatTime)
-import Util (listApp, count)
+import Util (listApp, count, median)
 import System.Locale (defaultTimeLocale)
 import Text.JSON (Result(..), JSValue(..), JSON(..), toJSObject, fromJSObject, toJSString, fromJSString)
 
@@ -26,6 +29,12 @@ data Transaction = Transaction { description :: String
                                , amount :: Int
                                , tags :: [String]
                                } deriving (Show, Eq, Ord)
+
+tag :: Transaction -> String
+tag = fromMaybe "" . listToMaybe . tags
+
+month :: Transaction -> Int
+month = (\(_,m,_) -> m) . toGregorian . utctDay . runJUTCTime . date
 
 -- Database.CouchDB forces us to use Text.JSON tsk tsk
 -- with Aeson none of this instance code is required
@@ -114,27 +123,6 @@ sortAndGroup = map sortGroupTags . sortGroupMonth
         sortGroupMonth = groupBy ((==) `on` month) . sortBy (flip compare `on` date)
         sortGroupTags :: [Transaction] -> [[Transaction]]
         sortGroupTags = groupBy ((==) `on` (Set.fromList . tags)) . sortBy (compare `on` (Set.fromList . tags))
-
-headDef :: a -> [a] -> a
-headDef d [] = d
-headDef _ (x:_) = x
-
-tag :: Transaction -> String
-tag = headDef "" . tags
-
-month :: Transaction -> Int
-month = (\(_,m,_) -> m) . toGregorian . utctDay . runJUTCTime . date
-
-mean :: Floating a => [a] -> a
-mean = fst . foldl' (\(m, n) x -> (m+(x-m)/(n+1),n+1)) (0,0)
-
-median :: (Floating a, Ord a) => [a] -> a
-median x | odd n  = head  $ drop (n `div` 2) x'
-         | even n = mean $ take 2 $ drop i x'
-         | otherwise = undefined -- This never happens but not including this case causes non-exhaustive warning. I wonder if this can be solved in dependently typed languages.
-                  where i = (length x' `div` 2) - 1
-                        x' = sort x
-                        n  = length x
 
 monthStats :: [Transaction] -> [(String, Double)]
 monthStats ts = Map.toList $ Map.map median $ foldl' (Map.intersectionWith (flip (:))) (emptyTagMapList ts) $ map (Map.unionWith (+) (emptyTagMap ts) . amountPerTag) (tsByMonth ts)

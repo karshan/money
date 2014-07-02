@@ -7,6 +7,8 @@ module Util
     , window
     , substr
     , count
+    , mean
+    , median
     , splitOnIndices
     , responseString
     , responseJSON
@@ -19,6 +21,7 @@ import qualified Data.ByteString.Char8 as BS (ByteString, unpack, pack)
 import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString, pack)
 import Data.Conduit (($$))
 import Data.Conduit.List (consume)
+import Data.List (foldl', sort)
 import Data.Maybe (listToMaybe)
 import Data.Monoid (mconcat)
 import Network.HTTP.Types (ok200, movedPermanently301, internalServerError500)
@@ -54,6 +57,17 @@ substr l u = take (u - l) . drop l
 
 count :: (Eq a) => a -> [a] -> Int
 count x = length . filter (==x)
+
+mean :: Floating a => [a] -> a
+mean = fst . foldl' (\(m, n) x -> (m+(x-m)/(n+1),n+1)) (0,0)
+
+median :: (Floating a, Ord a) => [a] -> a
+median x | odd n  = head  $ drop (n `div` 2) x'
+         | even n = mean $ take 2 $ drop i x'
+         | otherwise = undefined -- This never happens but not including this case causes non-exhaustive warning. I wonder if this can be solved in dependently typed languages.
+                  where i = (length x' `div` 2) - 1
+                        x' = sort x
+                        n  = length x
 
 --TODO is should be a Set Int not a [Int]
 --TODO flip some burgers and get rid of the lambda
