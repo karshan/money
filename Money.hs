@@ -10,7 +10,7 @@ module Money
 
 import Control.Applicative ((<$>))
 import Data.Function (on)
-import Data.List (tails, sortBy, groupBy, foldl', genericLength)
+import Data.List (sort, tails, sortBy, groupBy, foldl')
 import qualified Data.Map as Map (Map, unionWith, map, intersectionWith, fromList, toList, fromListWith)
 import qualified Data.Set as Set (fromList)
 import Data.Time (UTCTime)
@@ -125,16 +125,23 @@ tag = headDef "" . tags
 month :: Transaction -> Int
 month = (\(_,m,_) -> m) . toGregorian . utctDay . runJUTCTime . date
 
+mean :: Floating a => [a] -> a
+mean = fst . foldl' (\(m, n) x -> (m+(x-m)/(n+1),n+1)) (0,0)
+
+median :: (Floating a, Ord a) => [a] -> a
+median x | odd n  = head  $ drop (n `div` 2) x'
+         | even n = mean $ take 2 $ drop i x'
+         | otherwise = undefined -- This never happens but not including this case causes non-exhaustive warning. I wonder if this can be solved in dependently typed languages.
+                  where i = (length x' `div` 2) - 1
+                        x' = sort x
+                        n  = length x
+
 monthStats :: [Transaction] -> [(String, Double)]
-monthStats ts = Map.toList $ Map.map meanWithoutOutliers $ foldl' (Map.intersectionWith (flip (:))) (emptyTagMapList ts) $ map (Map.unionWith (+) (emptyTagMap ts) . avgTag) (tsByMonth ts)
+monthStats ts = Map.toList $ Map.map median $ foldl' (Map.intersectionWith (flip (:))) (emptyTagMapList ts) $ map (Map.unionWith (+) (emptyTagMap ts) . amountPerTag) (tsByMonth ts)
     where
         emptyTagMapList :: [Transaction] -> Map.Map String [Double]
         emptyTagMapList = Map.fromList . map (\a -> (tag a, []))
         emptyTagMap = Map.fromList . map (\a -> (tag a, 0))
         tsByMonth = groupBy ((==) `on` month) . sortBy (compare `on` date)
-        avgTag = Map.map (uncurry (/)) . Map.fromListWith pairAdd . map transactionToPair
-        transactionToPair t = (tag t, (fromIntegral $ amount t, 1))
-        meanWithoutOutliers :: [Double] -> Double
-        meanWithoutOutliers [] = 0
-        meanWithoutOutliers xs = sum xs/genericLength xs
-        pairAdd (a1, b1) (a2, b2) = (a1 + a2, b1 + b2)
+        amountPerTag = Map.fromListWith (+) . map transactionToPair
+        transactionToPair t = (tag t, fromIntegral $ amount t)
