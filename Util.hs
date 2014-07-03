@@ -10,6 +10,7 @@ module Util
     , mean
     , median
     , splitOnIndices
+    , responseLBS'
     , responseString
     , responseJSON
     , redirect
