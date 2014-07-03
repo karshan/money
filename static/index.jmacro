@@ -1,0 +1,70 @@
+// utils
+
+fun strArrConcat list {
+    out = ""
+    for (var i in list) {
+        out = out + list[i];
+    }
+    return out;
+}
+
+tableStyle = [["border-collapse", "collapse"], ["border", "1px solid black"]] 
+fun table rs -> html "table" [] tableStyle
+                    (strArrConcat <| map (\r -> ht "tr" (strArrConcat <| 
+                        map (\x -> html "td" [] tableStyle x) r)) rs)
+
+fun html tag attrs style c -> "<" + tag + " "
+               + (strArrConcat <| map (\[k, v] -> k + "=" + v + " ") attrs)
+               + "style=\"" + (strArrConcat <| map (\[k, v] -> k + ": " + v + "; ") style) + "\">"
+               + c + "</" + tag + ">";
+
+fun ht t c -> html t [] [] c
+
+fun wDiv w s -> html "div" [] [["width", w + "px"], ["height", "18px"]] s;
+fun fwDiv w s -> html "div" [] [["width", w + "px"], ["float", "left"]] s;
+
+jsonGet = function(url, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function() {
+        if (this.status != 200) {
+            cb(null);
+        } else {
+            var json = null;
+            try {
+                json = JSON.parse(this.responseText);
+            } catch(_) {
+                json = null;
+            }
+            cb(json);
+        }
+    };
+    xhr.open("get", url, true);
+    xhr.send();
+};
+
+jsonPost = function(url, d, cb) {
+    var xhr = new XMLHttpRequest();
+    xhr.onload = function() {
+        if (this.status != 200) {
+            cb(null);
+        } else {
+            var json = null;
+            try {
+                json = JSON.parse(this.responseText);
+            } catch(_) {
+                json = null;
+            }
+            cb(json);
+        }
+    };
+    xhr.open("post", url, true);
+    xhr.send(JSON.stringify(d));
+};
+// endutils
+
+renderer = {};
+window.onload = \ -> renderer["overview"]();
+
+renderer["overview"] = \ ->
+    jsonGet "/monthStats" \stats -> $("#container").html <|
+        strArrConcat <| table <| cons ["tag", "amount"] (filter (\[_, amt] -> amt != 0) stats);
