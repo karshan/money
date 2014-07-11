@@ -11,10 +11,12 @@ module Util
     , median
     , splitOnIndices
     , responseLBS'
+    , responseHtml
     , responseString
     , responseJSON
     , redirect
     , jsonApp
+    , table
     ) where
 
 import Control.Applicative ((<$>))
@@ -28,6 +30,8 @@ import Data.Monoid (mconcat)
 import Network.HTTP.Types (ok200, movedPermanently301, internalServerError500)
 import Network.HTTP.Types.Header (hContentType, hLocation)
 import Network.Wai (Request, Response, requestMethod, requestBody, responseLBS)
+import qualified Text.Blaze.Html5 as H
+import qualified Text.Blaze.Html5.Attributes as A
 import Text.JSON (JSON, Result(..), decodeStrict, encodeStrict)
 
 (?) :: Bool -> a -> a -> a
@@ -89,6 +93,9 @@ jsonData req
 responseLBS' :: BS.ByteString -> LBS.ByteString -> Response
 responseLBS' c = responseLBS ok200 [(hContentType, c)]
 
+responseHtml :: String -> Response
+responseHtml = responseLBS ok200 [(hContentType, "text/html")] . LBS.pack
+
 responseError :: String -> Response
 responseError = responseLBS internalServerError500 [(hContentType, "text/plain")] . LBS.pack
 
@@ -107,3 +114,10 @@ result f _ (Error s) = f s
 
 jsonApp :: (JSON a, JSON b) => (a -> IO b) -> Request -> IO Response
 jsonApp f req = jsonData req >>= result (return . responseError) (fmap responseJSON . f)
+
+-- Util.Html
+table :: [[String]] -> H.Html
+table = _table . mapM_ (H.tr . mapM_ (td . H.toHtml))
+    where
+        _table = H.table H.! A.style "border-collapse: collapse; border: 1px solid black;"
+        td = H.td H.! A.style "padding: .25em .25em .25em .25em; border-collapse: collapse; border: 1px solid black;"

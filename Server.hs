@@ -2,20 +2,15 @@
 module Main where
 
 import Control.Applicative ((<$>))
-import Control.Monad (void, when)
-import Data.List ((\\))
-import Data.List.Split (splitOn)
 import Data.Maybe (fromMaybe)
 import Data.Text (Text)
-import qualified Filesystem.Path.CurrentOS as FP (decodeString)
-import qualified ManageDB as MDB (getTransactions, addTransaction, deleteTransaction, updateTransaction, updateTransactions)
-import qualified Money as M (Transaction, tags, similarTransactions, monthStats)
-import Network.HTTP.Types.Header (hContentLength)
+import qualified ManageDB as MDB (getTransactions)
+import qualified Money as M (Transaction(..))
 import Network.Wai (Request, Response, pathInfo)
-import Network.Wai.Application.Static (staticApp, defaultWebAppSettings)
 import Network.Wai.Handler.Warp (run)
-import Network.Wai.Util (mapHeaders)
-import Util (jsonApp, redirect, responseJSON, responseString)
+import qualified Text.Blaze.Html5 as H
+import Text.Blaze.Html.Renderer.Pretty (renderHtml)
+import Util (responseHtml, responseString, table)
 
 main :: IO ()
 main = putStrLn ("Listening on port " ++ show port) >> run port app
@@ -27,52 +22,25 @@ app req = route (pathInfo req) req
 
 route :: [Text] -> Request -> IO Response
 route path
-    | null path = redirect "/static/index.html"
-    | head path == "static" = static
-    | path == ["transactions"] = transactions
-    | path == ["similar"] = similarTransactions
-    | path == ["delete"] = deleteTransaction
-    | path == ["add"] = addTransaction
-    | path == ["update"] = updateTransaction
-    | path == ["updateTags"] = updateTags
-    | path == ["monthStats"] = monthStats
+    | null path = overviewApp
     | otherwise = notFound
 
 notFound :: Request -> IO Response
 notFound req = return $ responseString $ "not found " ++ show (pathInfo req)
 
--- assumes request pathInfo is non-empty. Verified since its checked in route.
--- It would be nice if the compiler could make that guarantee.
-static :: Request -> IO Response
-static req = mapHeaders (filter (\(k,_) -> k /= hContentLength)) <$> a (req { pathInfo = tail (pathInfo req) })
-    where
-        a = staticApp $ defaultWebAppSettings $ FP.decodeString "./static"
+overviewApp :: Request -> IO Response
+overviewApp _ = do
+    ts <- getTs
+    return $ responseHtml $ renderHtml $ transactionsTable ts
+
+transactionsTable :: [M.Transaction] -> H.Html
+transactionsTable ts = H.docTypeHtml $ do
+    H.head $
+        H.title "Overview Page"
+    H.body $
+        table $ ["Date", "Description", "Amount", "Tags"]
+                : map (\t -> map ($ t) [show . M.date, M.description, show . M.amount, show . M.tags]) ts
 
 -- TODO error reporting
-ts :: IO [M.Transaction]
-ts = fromMaybe [] <$> MDB.getTransactions
-
-transactions :: Request -> IO Response
-transactions _ = responseJSON <$> ts
-
-similarTransactions :: Request -> IO Response
-similarTransactions = jsonApp (\t -> M.similarTransactions t <$> ts)
-
--- TODO error reporting
-deleteTransaction :: Request -> IO Response
-deleteTransaction = jsonApp (void . MDB.deleteTransaction)
-
--- TODO error reporting
-addTransaction :: Request -> IO Response
-addTransaction = jsonApp (void . MDB.addTransaction)
-
--- TODO error reporting
-updateTransaction :: Request -> IO Response
-updateTransaction = jsonApp (\a -> when (length a == 2) $ void $ MDB.updateTransaction (head a) (a !! 1))
-
-updateTags :: Request -> IO Response
-updateTags = jsonApp $ \(sts, tags) -> void $ MDB.updateTransactions $
-                            \ats -> (ats \\ sts) ++ map (\t -> t { M.tags = splitOn " " tags }) sts
-
-monthStats :: Request -> IO Response
-monthStats _ = (responseJSON . M.monthStats) <$> ts
+getTs :: IO [M.Transaction]
+getTs = fromMaybe [] <$> MDB.getTransactions

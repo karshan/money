@@ -61,7 +61,10 @@ instance JSON Transaction where
                                         , ("tags", showJSONs $ tags t)
                                        ]
 
-newtype JUTCTime = JUTCTime { runJUTCTime :: UTCTime } deriving (Show, Eq, Ord)
+newtype JUTCTime = JUTCTime { runJUTCTime :: UTCTime } deriving (Eq, Ord)
+instance Show JUTCTime where
+    show (JUTCTime a) = formatTime defaultTimeLocale "%m/%d/%Y" a
+
 instance JSON JUTCTime where
     readJSON (JSString s) = maybeToResult "parseTime Failed" $ JUTCTime <$> parseTime defaultTimeLocale "%m/%d/%Y" (fromJSString s)
         where
