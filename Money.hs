@@ -1,6 +1,7 @@
 module Money
     (
       Transaction(..)
+    , JUTCTime(..)
     , similarTransactions
     , fuzzyMatchChecks
     , monthStats

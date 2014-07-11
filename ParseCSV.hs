@@ -15,7 +15,7 @@ import Data.List.Split (splitOn)
 import Data.Maybe (mapMaybe)
 import Data.Time (UTCTime(..))
 import qualified Data.Time.Format as TF (parseTime)
-import Money (Transaction(..))
+import Money (Transaction(..), JUTCTime(..))
 import System.Locale (defaultTimeLocale)
 import Util ((?), maybeRead, splitOnIndices, count, index)
 
@@ -29,12 +29,9 @@ splitOnNonEscapedCommas str = splitOnIndices splitIndices str
         splitIndices = filter (not . isEscapedCommaIndex) (elemIndices ',' str)
 
 parseAmount :: String -> Maybe Int
-parseAmount a = ((ceiling :: Float -> Int) . (*100)) <$> maybeRead  (filter (/='"') a)
-parseTime :: String -> Maybe UTCTime
-parseTime = TF.parseTime defaultTimeLocale "%m/%d/%Y"
-
-parseTime' :: String -> Maybe UTCTime
-parseTime' = TF.parseTime defaultTimeLocale "%Y-%m-%d"
+parseAmount a = ceiling . (* 100) <$> (maybeRead :: String -> Maybe Double) (filter (/='"') a)
+parseTime :: String -> String -> Maybe UTCTime
+parseTime = TF.parseTime defaultTimeLocale
 
 -- Converts bank of america debit card csv output into [Transaction] Type
 -- TODO cleanup var names
@@ -46,11 +43,11 @@ parseDebit s = mapMaybe csvRecordToTransaction tRecords
         -- this code assumes a particular csv header "Date,Description,Amount,Running Bal."
         csvRecordToTransaction :: [String] -> Maybe Transaction
         csvRecordToTransaction t = do
-            _date <- parseTime =<< t `index` 0
+            _date <- parseTime "%m/%d/%Y" =<< t `index` 0
             _description <- t `index` 1
             _amount <- parseAmount =<< t `index` 2
             return Transaction { description = _description
-                               , date = _date
+                               , date = JUTCTime _date
                                , amount = _amount
                                , tags = []
                                }
@@ -62,11 +59,11 @@ parseCredit s = mapMaybe recordToTransaction records
         -- this code assumes a particular csv header "Posted Date,Reference Number,Payee,Address,Amount"
         recordToTransaction :: [String] -> Maybe Transaction
         recordToTransaction t = do
-            _date <- parseTime =<< t `index` 0
+            _date <- parseTime "%m/%d/%Y" =<< t `index` 0
             _description <- (++) <$> t `index` 1 <*> ((:) ' ' <$> t `index` 2)
             _amount <- parseAmount =<< t `index` 4
             return Transaction { description = _description
-                               , date = _date
+                               , date = JUTCTime _date
                                , amount = _amount
                                , tags = []
                                }
@@ -79,12 +76,12 @@ parseTCF s = mapMaybe csvRecordToTransaction tRecords
         -- this code assumes a particular csv header "Date,Description,Amount,Running Bal."
         csvRecordToTransaction :: [String] -> Maybe Transaction
         csvRecordToTransaction t = do
-            _date <- (parseTime' . head . splitOn " ") =<< t `index` 0
+            _date <- (parseTime "%Y-%m-%d" . head . splitOn " ") =<< t `index` 0
             _description <- t `index` 1
             _isDebit <- (== "Debit") <$> t `index` 8
             _amount <- (\a -> if _isDebit then negate a else a) <$> (parseAmount =<< t `index` 2)
             return Transaction { description = _description
-                               , date = _date
+                               , date = JUTCTime _date
                                , amount = _amount
                                , tags = []
                                }
