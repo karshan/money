@@ -16,12 +16,14 @@ module Util
     , responseJSON
     , redirect
     , jsonApp
-    , table
+    , stringToBase64
+    , base64ToString
     ) where
 
 import Control.Applicative ((<$>))
 import qualified Data.ByteString.Char8 as BS (ByteString, unpack, pack)
 import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString, pack)
+import Data.ByteString.Base64 as B64 (encode, decodeLenient)
 import Data.Conduit (($$))
 import Data.Conduit.List (consume)
 import Data.List (foldl', sort)
@@ -30,8 +32,6 @@ import Data.Monoid (mconcat)
 import Network.HTTP.Types (ok200, movedPermanently301, internalServerError500)
 import Network.HTTP.Types.Header (hContentType, hLocation)
 import Network.Wai (Request, Response, requestMethod, requestBody, responseLBS)
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html5.Attributes as A
 import Text.JSON (JSON, Result(..), decodeStrict, encodeStrict)
 
 (?) :: Bool -> a -> a -> a
@@ -82,6 +82,12 @@ splitOnIndices is xs = filter (not . null) $ mapTail (drop (1 :: Int)) $ map (\a
     where
         is' = 0:is ++ [length xs]
 
+base64ToString :: String -> String
+base64ToString = BS.unpack . B64.decodeLenient . BS.pack
+
+stringToBase64 :: String -> String
+stringToBase64 = BS.unpack . B64.encode . BS.pack
+
 rawRequestBody :: Request -> IO BS.ByteString
 rawRequestBody req = mconcat <$> (requestBody req $$ consume)
 
@@ -114,10 +120,3 @@ result f _ (Error s) = f s
 
 jsonApp :: (JSON a, JSON b) => (a -> IO b) -> Request -> IO Response
 jsonApp f req = jsonData req >>= result (return . responseError) (fmap responseJSON . f)
-
--- Util.Html
-table :: [[String]] -> H.Html
-table = _table . mapM_ (H.tr . mapM_ (td . H.toHtml))
-    where
-        _table = H.table H.! A.style "border-collapse: collapse; border: 1px solid black;"
-        td = H.td H.! A.style "padding: .25em .25em .25em .25em; border-collapse: collapse; border: 1px solid black;"
