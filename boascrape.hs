@@ -29,7 +29,6 @@ httppost url params = do
         r <- postWith opts url params
         return $ r ^. responseCookieJar)
     put (icj <> ocj)
-    lift $ print (url, icj <> ocj)
 
 httpget :: String -> StateIO CookieJar LBS.ByteString
 httpget url = do
@@ -39,7 +38,6 @@ httpget url = do
         r <- getWith opts url
         return (r ^. responseCookieJar, r ^. responseBody))
     put (icj <> ocj)
-    lift $ print (url, icj <> ocj)
     return body
 
 stateMain :: StateIO CookieJar LBS.ByteString
@@ -49,6 +47,5 @@ stateMain = do
     httppost "https://secure.bankofamerica.com/login/getCAAFSO" [ "pmdata" ^= "" ]
     httpget "https://secure.bankofamerica.com/login/sign-in/signOn.go"
     
-
 main :: IO ()
 main = LBS.putStr =<< evalStateT stateMain def
