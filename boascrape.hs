@@ -3,7 +3,7 @@ import Control.Lens ((&), (.~), (^.))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State (StateT, get, put, evalStateT)
 import qualified Data.ByteString.Char8 as BS (ByteString)
-import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString, putStr)
+import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString)
 import Data.Default.Class (def)
 import Data.Monoid ((<>))
 import Network.Connection (TLSSettings(..))
@@ -12,6 +12,7 @@ import Network.HTTP.Client.TLS (mkManagerSettings)
 import Network.Wreq (Options, FormParam((:=)), postWith, getWith, proxy, manager, httpProxy, responseCookieJar, responseBody, cookies)
 import qualified Network.Wreq as W (defaults)
 import Network.Wreq.Types (Postable)
+import Text.HTML.TagSoup
 
 type StateIO s a = StateT s IO a
 
@@ -48,4 +49,10 @@ stateMain = do
     httpget "https://secure.bankofamerica.com/login/sign-in/signOn.go"
     
 main :: IO ()
-main = LBS.putStr =<< evalStateT stateMain def
+main = print =<< (f `fmap` evalStateT stateMain def)
+    where
+        f :: LBS.ByteString -> [Tag LBS.ByteString]
+        f = filter secretQuestion . parseTags
+        secretQuestion :: Tag LBS.ByteString -> Bool
+        secretQuestion (TagOpen _ attrs) = ("for", "tlpvt-challenge-answer") `elem` attrs
+        secretQuestion _ = False

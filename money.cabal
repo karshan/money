@@ -53,4 +53,5 @@ executable boascrape
                   , bytestring >= 0.10.4.0
                   , lens >= 4.2
                   , connection >= 0.2.3
+                  , tagsoup >= 0.13.1
   default-language:    Haskell2010
