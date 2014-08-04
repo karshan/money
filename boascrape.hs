@@ -2,57 +2,71 @@
 import Control.Lens ((&), (.~), (^.))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State (StateT, get, put, evalStateT)
-import qualified Data.ByteString.Char8 as BS (ByteString)
-import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString)
+import qualified Data.ByteString.Char8 as BS (ByteString, pack, isInfixOf)
+import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString, unpack, putStr)
 import Data.Default.Class (def)
 import Data.Monoid ((<>))
 import Network.Connection (TLSSettings(..))
 import Network.HTTP.Client (CookieJar)
 import Network.HTTP.Client.TLS (mkManagerSettings)
-import Network.Wreq (Options, FormParam((:=)), postWith, getWith, proxy, manager, httpProxy, responseCookieJar, responseBody, cookies)
-import qualified Network.Wreq as W (defaults)
+import Network.Wreq (Options, Response, postWith, getWith, proxy, manager, httpProxy, responseCookieJar, responseBody, cookies)
+import qualified Network.Wreq as W (FormParam((:=)), defaults)
 import Network.Wreq.Types (Postable)
-import Text.HTML.TagSoup
+import Text.XML.HXT.Core
+import Data.Tree.NTree.TypeDefs (NTree)
 
 type StateIO s a = StateT s IO a
 
-(^=) :: BS.ByteString -> BS.ByteString -> FormParam
-(^=) = (:=)
+(^=) :: BS.ByteString -> BS.ByteString -> W.FormParam
+(^=) = (W.:=)
 
 defaults :: Options
 defaults = W.defaults & proxy .~ httpProxy "localhost" 8080 & manager .~ Left (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
 
-httppost :: Postable a => String -> a -> StateIO CookieJar ()
-httppost url params = do
-    icj <- get
-    ocj <- lift (
-        let opts = defaults & cookies .~ icj in do
-        r <- postWith opts url params
-        return $ r ^. responseCookieJar)
-    put (icj <> ocj)
+css :: ArrowXml a => String -> a (NTree XNode) XmlTree
+css tag = multi (hasName tag)
 
-httpget :: String -> StateIO CookieJar LBS.ByteString
-httpget url = do
-    icj <- get
-    (ocj, body) <- lift (
-        let opts = defaults & cookies .~ icj in do
-        r <- getWith opts url
-        return (r ^. responseCookieJar, r ^. responseBody))
-    put (icj <> ocj)
-    return body
+withCookies :: (Options -> IO (Response a)) -> StateIO CookieJar (Response a)
+withCookies f = do
+    cj <- get
+    resp <- lift (f (defaults & cookies .~ cj))
+    put (cj <> resp ^. responseCookieJar)
+    return resp
 
-stateMain :: StateIO CookieJar LBS.ByteString
+httppost :: Postable a => String -> a -> StateIO CookieJar (Response LBS.ByteString)
+httppost url params = withCookies (\o -> postWith o url params)
+
+httpget :: String -> StateIO CookieJar (Response LBS.ByteString)
+httpget url = withCookies (`getWith` url)
+
+stateMain :: StateIO CookieJar ()
 stateMain = do
     _ <- httpget "https://www.bankofamerica.com/"
-    httppost "https://secure.bankofamerica.com/login/sign-in/entry/signOn.go" [ "Access_ID" ^= "username" ]
-    httppost "https://secure.bankofamerica.com/login/getCAAFSO" [ "pmdata" ^= "" ]
-    httpget "https://secure.bankofamerica.com/login/sign-in/signOn.go"
+    _ <- httppost "https://secure.bankofamerica.com/login/sign-in/entry/signOn.go" [ "Access_ID" ^= username ]
+    _ <- httppost "https://secure.bankofamerica.com/login/getCAAFSO" [ "pmdata" ^= "" ]
+    challengePage <- (^. responseBody) `fmap` httpget "https://secure.bankofamerica.com/login/sign-in/signOn.go"
+
+    let question = BS.pack $ getQuestion $ LBS.unpack challengePage
+    let csrfToken = BS.pack $ getCsrfToken $ LBS.unpack challengePage
+
+    _ <- httppost "https://secure.bankofamerica.com/login/sign-in/validateChallengeAnswer.go" [ "csrfTokenHidden" ^= csrfToken, "challengeQuestionAnswer" ^= getAnswer question, "rembme" ^= "on" ]
+    out <- httppost "https://secure.bankofamerica.com/login/sign-in/validatePassword.go" [ "csrfTokenHidden" ^= csrfToken, "password" ^= password ]
+    (lift . print) =<< get
+    lift $ LBS.putStr (out ^. responseBody)
+    where
+        getQuestion :: String -> String
+        getQuestion body = head (runLA (hread >>> css "label" >>> hasAttrValue "for" (== "tlpvt-challenge-answer") //> getText) body ++ [""])
+        getCsrfToken :: String -> String
+        getCsrfToken body = head (runLA (hread >>> css "input" >>> hasAttrValue "name" (== "csrfTokenHidden") >>> getAttrValue "value") body ++ [""])
+
+username :: BS.ByteString
+username = undefined
+
+password :: BS.ByteString
+password = undefined
+
+getAnswer :: BS.ByteString -> BS.ByteString
+getAnswer = undefined
     
 main :: IO ()
-main = print =<< (f `fmap` evalStateT stateMain def)
-    where
-        f :: LBS.ByteString -> [Tag LBS.ByteString]
-        f = filter secretQuestion . parseTags
-        secretQuestion :: Tag LBS.ByteString -> Bool
-        secretQuestion (TagOpen _ attrs) = ("for", "tlpvt-challenge-answer") `elem` attrs
-        secretQuestion _ = False
+main = evalStateT stateMain def
