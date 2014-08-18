@@ -3,8 +3,10 @@ import Control.Lens ((&), (.~), (^.))
 import Control.Monad.Trans.Class (lift)
 import Control.Monad.Trans.State (StateT, get, put, evalStateT)
 import qualified Data.ByteString.Char8 as BS (ByteString, pack, isInfixOf)
-import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString, unpack, putStr)
+import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString, unpack, writeFile)
 import Data.Default.Class (def)
+import Data.List (isInfixOf)
+import Data.List.Split (splitOn)
 import Data.Monoid ((<>))
 import Network.Connection (TLSSettings(..))
 import Network.HTTP.Client (CookieJar)
@@ -50,20 +52,48 @@ stateMain = do
     let csrfToken = BS.pack $ getCsrfToken $ LBS.unpack challengePage
 
     _ <- httppost "https://secure.bankofamerica.com/login/sign-in/validateChallengeAnswer.go" [ "csrfTokenHidden" ^= csrfToken, "challengeQuestionAnswer" ^= getAnswer question, "rembme" ^= "on" ]
-    out <- httppost "https://secure.bankofamerica.com/login/sign-in/validatePassword.go" [ "csrfTokenHidden" ^= csrfToken, "password" ^= password ]
-    (lift . print) =<< get
-    lift $ LBS.putStr (out ^. responseBody)
+    _ <- httppost "https://secure.bankofamerica.com/login/sign-in/validatePassword.go" [ "csrfTokenHidden" ^= csrfToken, "password" ^= password ]
+    debit <- httppost "https://secure.bankofamerica.com/myaccounts/details/deposit/download-transactions.go" [ "selectedTransPeriod" ^= ""
+                                                                                                         , "downloadTransactionType" ^= "customRange"
+                                                                                                         , "searchBean.timeFrameStartDate" ^= "03/01/2014"
+                                                                                                         , "searchBean.timeFrameEndDate" ^= "08/17/2014" 
+                                                                                                         , "formatType" ^= "csv" 
+                                                                                                         , "searchBean.searchMoreOptionsPanelUsed" ^= "false" 
+                                                                                                         ]
+    creditStxs <- (^. responseBody) `fmap` httpget ("https://secure.bankofamerica.com/myaccounts/brain/redirect.go?source=overview&target=acctDetails&adx=" ++ adx)
+    let stx = getStx $ LBS.unpack creditStxs
+    credit <- httpget $ "https://secure.bankofamerica.com/myaccounts/details/card/download-transactions.go?&adx=" ++ adx ++ "&stx=" ++ stx ++ "&target=downloadStmtFromDateList&formatType=csv"
+    lift $ LBS.writeFile "debit.csv" (debit ^. responseBody)
+    lift $ LBS.writeFile "credit.csv" (credit ^. responseBody)
     where
         getQuestion :: String -> String
         getQuestion body = head (runLA (hread >>> css "label" >>> hasAttrValue "for" (== "tlpvt-challenge-answer") //> getText) body ++ [""])
         getCsrfToken :: String -> String
         getCsrfToken body = head (runLA (hread >>> css "input" >>> hasAttrValue "name" (== "csrfTokenHidden") >>> getAttrValue "value") body ++ [""])
+        adx = undefined
+
+fromMaybe :: a -> Maybe a -> a
+fromMaybe d Nothing = d
+fromMaybe _ (Just a) = a
+
+safeHead :: a -> [a] -> a
+safeHead d xs = head (xs ++ [d])
+
+safeLast :: a -> [a] -> a
+safeLast d [] = d
+safeLast _ xs = last xs 
+
+queryParamsFromUrl :: String -> [(String, String)]
+queryParamsFromUrl = map ((safeHead "" &&& safeLast "") . splitOn "=") . splitOn "&" . safeLast "" . splitOn "?"
+
+getStx :: String -> String
+getStx = undefined
 
 username :: BS.ByteString
-username = undefined
+username = ""
 
 password :: BS.ByteString
-password = undefined
+password = ""
 
 getAnswer :: BS.ByteString -> BS.ByteString
 getAnswer = undefined
