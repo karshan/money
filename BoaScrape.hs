@@ -119,6 +119,8 @@ getLatestTransactions = withCookies $ do
         getCsrfToken :: String -> String
         getCsrfToken body = fromMaybe (error "getCsrfToken") $ findAttr (toQName "value") =<< safeHead (mapMaybe (filterElement (hasAttrVal "name" "csrfTokenHidden")) $ onlyElems $ parseXML body)
         getStxs :: String -> [String]
-        getStxs x = mapMaybe (\e -> do
-            r <- findAttr (toQName "rel") e
-            lookup "stx" $ queryParamsFromUrl r) $ concatMap (filterElements $ hasAttrValBy "name" ("goto_transactions_top_for_this_date" `isPrefixOf`)) $ onlyElems $ parseXML x
+        getStxs x = fromMaybe [] (do
+            divList <-safeHead $ mapMaybe (filterElement $ hasAttrVal "class" "goto-trans-dropdown-box hide") $ onlyElems $ parseXML x
+            return $ mapMaybe (\e -> do
+                r <- findAttr (toQName "rel") e
+                lookup "stx" $ queryParamsFromUrl r) $ filterElements (hasAttrValBy "name" ("goto_" `isPrefixOf`)) divList)

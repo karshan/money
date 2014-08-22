@@ -105,4 +105,4 @@ getTransactions = runCouchDB' $ getDoc thedb theDoc >>= unwrapTransactions
         unwrapTransactions Nothing = return Nothing
 
 updateWithLatest :: IO (Maybe (Doc, Rev))
-updateWithLatest = getLatestTransactions >>= addTransactions
+updateWithLatest = getLatestTransactions >>= (updateTransactions . const)
