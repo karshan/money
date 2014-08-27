@@ -7,11 +7,9 @@ module ManageDB
     , deleteTransaction
     , updateTransaction
     , updateTransactions
-    , updateWithLatest
     )
     where
 
-import BoaScrape (getLatestTransactions)
 import Control.Exception (SomeException, catch)
 import Control.Monad (void)
 import Database.CouchDB (CouchMonad, DB, Doc, Rev, runCouchDB', createDB, dropDB, newNamedDoc, db, doc, getDoc, updateDoc)
@@ -103,6 +101,3 @@ getTransactions = runCouchDB' $ getDoc thedb theDoc >>= unwrapTransactions
     where
         unwrapTransactions (Just (_, _, Transactions ts)) = return $ Just ts
         unwrapTransactions Nothing = return Nothing
-
-updateWithLatest :: IO (Maybe (Doc, Rev))
-updateWithLatest = getLatestTransactions >>= (updateTransactions . const)

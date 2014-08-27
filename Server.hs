@@ -1,11 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
+import BoaScrape (getLatestTransactions)
 import Control.Applicative ((<$>))
+import Control.Concurrent (forkIO, threadDelay)
+import Control.Monad (void, forever)
+import Data.List (deleteFirstsBy)
 import Data.Maybe (fromMaybe)
 import Data.String (fromString)
 import Data.Text (Text)
-import qualified ManageDB as MDB (getTransactions)
+import qualified ManageDB as MDB (getTransactions, updateTransactions)
 import qualified Money as M (Transaction(..))
 import Network.Wai (Request, Response, pathInfo, queryString)
 import Network.Wai.Handler.Warp (run)
@@ -15,9 +19,23 @@ import qualified Text.Blaze.Html5.Attributes as A
 import Util (responseHtml, responseString, stringToBase64, base64ToString)
 
 main :: IO ()
-main = putStrLn ("Listening on port " ++ show port) >> run port app
+main =  do
+    _ <- forkIO updateThread
+    putStrLn ("Listening on port " ++ show port)
+    run port app
     where
         port = 3000
+
+mergeTransactions :: [M.Transaction] -> [M.Transaction] -> [M.Transaction]
+mergeTransactions new old = old ++ deleteFirstsBy (\a b -> M.date a == M.date b && M.description a == M.description b && M.amount a == M.amount b) new old
+
+updateThread :: IO ()
+updateThread = forever $ do
+    new <- getLatestTransactions
+    void $ MDB.updateTransactions (mergeTransactions new)
+    threadDelay $ periodInSeconds * (10 ^ (6 :: Int))
+        where
+            periodInSeconds = 60
 
 app :: Request -> IO Response
 app req = route (pathInfo req) req
