@@ -27,7 +27,7 @@ data Transaction = Transaction { description :: String
                                , date :: JUTCTime
                                , amount :: Int
                                , tags :: [String]
-                               } deriving (Show, Eq, Ord)
+                               } deriving (Show, Read, Eq, Ord)
 
 tag :: Transaction -> String
 tag = fromMaybe "" . listToMaybe . tags
@@ -61,9 +61,7 @@ instance JSON Transaction where
                                         , ("tags", showJSONs $ tags t)
                                        ]
 
-newtype JUTCTime = JUTCTime { runJUTCTime :: UTCTime } deriving (Eq, Ord)
-instance Show JUTCTime where
-    show (JUTCTime a) = formatTime defaultTimeLocale "%m/%d/%Y" a
+newtype JUTCTime = JUTCTime { runJUTCTime :: UTCTime } deriving (Eq, Ord, Show, Read)
 
 instance JSON JUTCTime where
     readJSON (JSString s) = maybeToResult "parseTime Failed" $ JUTCTime <$> parseTime defaultTimeLocale "%m/%d/%Y" (fromJSString s)

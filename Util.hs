@@ -11,7 +11,6 @@ module Util
     , median
     , splitOnIndices
     , responseLBS'
-    , responseHtml
     , responseString
     , responseJSON
     , redirect
@@ -98,9 +97,6 @@ jsonData req
 
 responseLBS' :: BS.ByteString -> LBS.ByteString -> Response
 responseLBS' c = responseLBS ok200 [(hContentType, c)]
-
-responseHtml :: String -> Response
-responseHtml = responseLBS ok200 [(hContentType, "text/html")] . LBS.pack
 
 responseError :: String -> Response
 responseError = responseLBS internalServerError500 [(hContentType, "text/plain")] . LBS.pack
