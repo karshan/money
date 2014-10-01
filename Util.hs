@@ -10,28 +10,10 @@ module Util
     , mean
     , median
     , splitOnIndices
-    , responseLBS'
-    , responseString
-    , responseJSON
-    , redirect
-    , jsonApp
-    , stringToBase64
-    , base64ToString
     ) where
 
-import Control.Applicative ((<$>))
-import qualified Data.ByteString.Char8 as BS (ByteString, unpack, pack)
-import qualified Data.ByteString.Lazy.Char8 as LBS (ByteString, pack)
-import Data.ByteString.Base64 as B64 (encode, decodeLenient)
-import Data.Conduit (($$))
-import Data.Conduit.List (consume)
 import Data.List (foldl', sort)
 import Data.Maybe (listToMaybe)
-import Data.Monoid (mconcat)
-import Network.HTTP.Types (ok200, movedPermanently301, internalServerError500)
-import Network.HTTP.Types.Header (hContentType, hLocation)
-import Network.Wai (Request, Response, requestMethod, requestBody, responseLBS)
-import Text.JSON (JSON, Result(..), decodeStrict, encodeStrict)
 
 (?) :: Bool -> a -> a -> a
 (?) True  x _ = x
@@ -80,39 +62,3 @@ splitOnIndices :: [Int] -> [a] -> [[a]]
 splitOnIndices is xs = filter (not . null) $ mapTail (drop (1 :: Int)) $ map (\a -> listApp substr a xs) $ window 2 is'
     where
         is' = 0:is ++ [length xs]
-
-base64ToString :: String -> String
-base64ToString = BS.unpack . B64.decodeLenient . BS.pack
-
-stringToBase64 :: String -> String
-stringToBase64 = BS.unpack . B64.encode . BS.pack
-
-rawRequestBody :: Request -> IO BS.ByteString
-rawRequestBody req = mconcat <$> (requestBody req $$ consume)
-
-jsonData :: JSON a => Request -> IO (Result a)
-jsonData req
-    | requestMethod req == "POST" = (decodeStrict . BS.unpack) <$> rawRequestBody req
-    | otherwise = return (Error "Not POST")
-
-responseLBS' :: BS.ByteString -> LBS.ByteString -> Response
-responseLBS' c = responseLBS ok200 [(hContentType, c)]
-
-responseError :: String -> Response
-responseError = responseLBS internalServerError500 [(hContentType, "text/plain")] . LBS.pack
-
-responseString :: String -> Response
-responseString = responseLBS' "text/plain" . LBS.pack
-
-responseJSON :: JSON a => a -> Response
-responseJSON = responseLBS' "application/json" . LBS.pack . encodeStrict
-
-redirect :: String -> Request -> IO Response
-redirect url _ = return $ responseLBS movedPermanently301 [(hLocation, BS.pack url)] ""
-
-result :: (String -> b) -> (a -> b) -> Result a -> b
-result _ f (Ok a) = f a
-result f _ (Error s) = f s
-
-jsonApp :: (JSON a, JSON b) => (a -> IO b) -> Request -> IO Response
-jsonApp f req = jsonData req >>= result (return . responseError) (fmap responseJSON . f)

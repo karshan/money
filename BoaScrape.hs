@@ -15,9 +15,6 @@ import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Monoid ((<>))
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (formatTime)
-import Network.Connection (TLSSettings(..))
-import Network.HTTP.Client (CookieJar)
-import Network.HTTP.Client.TLS (mkManagerSettings)
 import Network.Wreq (Options, Response, postWith, getWith, proxy, manager, httpProxy, responseCookieJar, responseBody, cookies)
 import qualified Network.Wreq as W (FormParam((:=)), defaults)
 import Network.Wreq.Types (Postable)
@@ -34,19 +31,19 @@ type StateIO s a = StateT s IO a
 (^=) = (W.:=)
 
 defaults :: Options
-defaults = W.defaults & proxy .~ httpProxy "localhost" 8080 & manager .~ Left (mkManagerSettings (TLSSettingsSimple True False False) Nothing)
+defaults = W.defaults
 
-preserveCookies :: (Options -> IO (Response a)) -> StateIO CookieJar (Response a)
+--preserveCookies :: (Options -> IO (Response a)) -> StateIO CookieJar (Response a)
 preserveCookies f = do
     cj <- get
     resp <- lift (f (defaults & cookies .~ cj))
     put (cj <> resp ^. responseCookieJar)
     return resp
 
-httppost :: Postable a => String -> a -> StateIO CookieJar (Response LBS.ByteString)
+--httppost :: Postable a => String -> a -> StateIO CookieJar (Response LBS.ByteString)
 httppost url params = preserveCookies (\o -> postWith o url params)
 
-httpget :: String -> StateIO CookieJar (Response LBS.ByteString)
+--httpget :: String -> StateIO CookieJar (Response LBS.ByteString)
 httpget url = preserveCookies (`getWith` url)
 
 toQName :: String -> QName
@@ -66,7 +63,7 @@ queryParamsFromUrl s = fromMaybe [] (do
     paramString <- safeHead $ reverse $ splitOn "?" s
     return $ mapMaybe ((\pair -> if length pair == 2 then Just (head pair, last pair) else Nothing) . splitOn "=") $ splitOn "&" paramString)
 
-withCookies :: StateIO CookieJar a -> IO a
+--withCookies :: StateIO CookieJar a -> IO a
 withCookies s = evalStateT s def
 -- End Utils
 
