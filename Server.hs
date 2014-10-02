@@ -7,7 +7,7 @@ import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad (void, forever)
 import Data.List (deleteFirstsBy)
 import Data.Monoid ((<>))
-import Data.String (fromString)
+import Data.String (IsString, fromString)
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (formatTime)
 import qualified ManageDB as MDB (updateTransactions)
@@ -44,6 +44,7 @@ app :: Application
 app req = route (pathInfo req) req
 
 --route :: [Text] -> Request -> IO Response
+route :: (IsString a, Eq a) => [a] -> Application
 route path
     | null path = notFound
     | path == ["transaction"] = notFound

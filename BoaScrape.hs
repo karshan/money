@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
 module BoaScrape (getLatestTransactions) where
 
 import Control.Applicative ((<$>))
@@ -15,35 +17,27 @@ import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.Monoid ((<>))
 import Data.Time.Clock (getCurrentTime)
 import Data.Time.Format (formatTime)
-import Network.Wreq (Options, Response, postWith, getWith, proxy, manager, httpProxy, responseCookieJar, responseBody, cookies)
-import qualified Network.Wreq as W (FormParam((:=)), defaults)
+import Network.Wreq (FormParam((:=)), Options, Response, defaults, postWith, getWith, responseCookieJar, responseBody, cookies)
 import Network.Wreq.Types (Postable)
+import Network.HTTP.Client (CookieJar)
 import System.Locale (defaultTimeLocale)
 import Text.XML.Light (parseXML, onlyElems, QName(..), Element, strContent, findAttr, filterElement, filterElements)
 
 import ParseCSV (parseDebit, parseCredit)
 import Money (Transaction)
 
--- Utils
-type StateIO s a = StateT s IO a
-
-(^=) :: BS.ByteString -> BS.ByteString -> W.FormParam
-(^=) = (W.:=)
-
-defaults :: Options
-defaults = W.defaults
-
---preserveCookies :: (Options -> IO (Response a)) -> StateIO CookieJar (Response a)
+preserveCookies :: (Options -> IO (Response a)) -> StateT CookieJar IO (Response a)
+--preserveCookies :: Monad m => (Network.Wreq.Internal.Types.Options -> m Network.HTTP.Client.Types.Response body) -> Control.Monad.Trans.State.Lazy.StateT Network.HTTP.Client.Types.CookieJar m Network.HTTP.Client.Types.Response body
 preserveCookies f = do
     cj <- get
     resp <- lift (f (defaults & cookies .~ cj))
     put (cj <> resp ^. responseCookieJar)
     return resp
 
---httppost :: Postable a => String -> a -> StateIO CookieJar (Response LBS.ByteString)
+httppost :: Postable a => String -> a -> StateT CookieJar IO (Response LBS.ByteString)
 httppost url params = preserveCookies (\o -> postWith o url params)
 
---httpget :: String -> StateIO CookieJar (Response LBS.ByteString)
+httpget :: String -> StateT CookieJar IO (Response LBS.ByteString)
 httpget url = preserveCookies (`getWith` url)
 
 toQName :: String -> QName
@@ -63,7 +57,7 @@ queryParamsFromUrl s = fromMaybe [] (do
     paramString <- safeHead $ reverse $ splitOn "?" s
     return $ mapMaybe ((\pair -> if length pair == 2 then Just (head pair, last pair) else Nothing) . splitOn "=") $ splitOn "&" paramString)
 
---withCookies :: StateIO CookieJar a -> IO a
+withCookies :: StateT CookieJar IO a -> IO a
 withCookies s = evalStateT s def
 -- End Utils
 
@@ -87,23 +81,23 @@ debitStartDate = undefined
 getLatestTransactions :: IO [Transaction]
 getLatestTransactions = withCookies $ do
     _ <- httpget "https://www.bankofamerica.com/"
-    _ <- httppost "https://secure.bankofamerica.com/login/sign-in/entry/signOn.go" [ "Access_ID" ^= username ]
-    _ <- httppost "https://secure.bankofamerica.com/login/getCAAFSO" [ "pmdata" ^= "" ]
+    _ <- httppost "https://secure.bankofamerica.com/login/sign-in/entry/signOn.go" [ "Access_ID" := username ]
+    _ <- httppost "https://secure.bankofamerica.com/login/getCAAFSO" [ "pmdata" := "" ]
     challengePage <- (^. responseBody) <$> httpget "https://secure.bankofamerica.com/login/sign-in/signOn.go"
 
     let question = BS.pack <$> getQuestion (LBS.unpack challengePage)
     let csrfToken = BS.pack $ getCsrfToken $ LBS.unpack challengePage
-    let sendAnswer q = void $ httppost "https://secure.bankofamerica.com/login/sign-in/validateChallengeAnswer.go" [ "csrfTokenHidden" ^= csrfToken, "challengeQuestionAnswer" ^= getAnswer q, "rembme" ^= "on" ]
+    let sendAnswer q = void $ httppost "https://secure.bankofamerica.com/login/sign-in/validateChallengeAnswer.go" [ "csrfTokenHidden" := csrfToken, "challengeQuestionAnswer" := getAnswer q, "rembme" := "on" ]
 
     maybe (return ()) sendAnswer question
-    _ <- httppost "https://secure.bankofamerica.com/login/sign-in/validatePassword.go" [ "csrfTokenHidden" ^= csrfToken, "password" ^= password ]
+    _ <- httppost "https://secure.bankofamerica.com/login/sign-in/validatePassword.go" [ "csrfTokenHidden" := csrfToken, "password" := password ]
     now <- (BS.pack . formatTime defaultTimeLocale "%m/%d/%Y") <$> lift getCurrentTime
-    debitcsv <- (^. responseBody) <$> httppost "https://secure.bankofamerica.com/myaccounts/details/deposit/download-transactions.go" [ "selectedTransPeriod" ^= ""
-                                                                                                         , "downloadTransactionType" ^= "customRange"
-                                                                                                         , "searchBean.timeFrameStartDate" ^= debitStartDate
-                                                                                                         , "searchBean.timeFrameEndDate" ^= now
-                                                                                                         , "formatType" ^= "csv" 
-                                                                                                         , "searchBean.searchMoreOptionsPanelUsed" ^= "false" 
+    debitcsv <- (^. responseBody) <$> httppost "https://secure.bankofamerica.com/myaccounts/details/deposit/download-transactions.go" [ "selectedTransPeriod" := ""
+                                                                                                         , "downloadTransactionType" := "customRange"
+                                                                                                         , "searchBean.timeFrameStartDate" := debitStartDate
+                                                                                                         , "searchBean.timeFrameEndDate" := now
+                                                                                                         , "formatType" := "csv"
+                                                                                                         , "searchBean.searchMoreOptionsPanelUsed" := "false"
                                                                                                          ]
     creditStxs <- (^. responseBody) <$> httpget ("https://secure.bankofamerica.com/myaccounts/brain/redirect.go?source=overview&target=acctDetails&adx=" ++ adx)
     let stxs = getStxs $ LBS.unpack creditStxs
