@@ -16,28 +16,30 @@ extra-source-files:  README.md
 cabal-version:       >= 1.20
 
 executable money
-  main-is:             Server.hs
+  hs-source-dirs:      src/
+  main-is:             Main.hs
   -- other-modules:
   ghc-options:     -Wall
   other-extensions:    OverloadedStrings
-  build-depends:       base >= 4.7 && < 4.8
--- Some packages have constraints that allow network >= 2.6 and fail to compile with it
-                     , network < 2.6
-                     , bytestring >= 0.10.4.0
-                     , CouchDB >= 1.2
-                     , warp >= 3.0.2
-                     , wreq >= 0.1.0.1
-                     , xml >= 1.3.13
-                     , split >= 0.2.2
-                     , transformers >= 0.4.1.0
-                     , data-default-class >= 0.0.1
-                     , containers >= 0.5.5.1
--- This is not the newest version of time, but packages we depend on use this version
-                     , time >= 1.4.2
-                     , old-locale >= 1.0.0.6
-                     , json >= 0.7
-                     , wai >= 3.0.2
-                     , lens >= 4.4.0.2
-                     , http-types >= 0.8.5
-                     , http-client >= 0.4.0
+  build-depends:       base
+                     , network
+                     , bytestring
+                     , CouchDB
+                     , warp
+                     , wreq
+                     , xml
+                     , split
+                     , transformers
+                     , data-default-class
+                     , containers
+                     , time
+                     , json
+                     , wai
+                     , lens
+                     , http-types
+                     , http-client
+                     , pretty-show
+                     , hxt
+                     , HandsomeSoup
+                     , utf8-string
   default-language:    Haskell2010
