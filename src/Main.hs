@@ -3,7 +3,7 @@ module Main where
 
 import           Control.Concurrent        (forkIO, threadDelay)
 import           Control.Monad             (forever, void)
-import           Data.Function             (on)
+import           Data.Function             (on, (&))
 import           Data.List                 (deleteFirstsBy)
 import           Data.Maybe                (fromMaybe)
 import           Data.Monoid               ((<>))
@@ -14,7 +14,7 @@ import qualified ManageDB                  as MDB (updateTransactions, getTransa
 import qualified Money                     as M (Transaction (..))
 import           Network.HTTP.Types.Status (ok200)
 import           Network.Wai               (Application, pathInfo, responseLBS)
-import           Network.Wai.Handler.Warp  (run)
+import           Network.Wai.Handler.Warp  (runSettings, setPort, setHost, defaultSettings)
 import           Scrapers.BankOfAmerica    (getLatestTransactions)
 import qualified Text.JSON                 as JSON (encode)
 
@@ -22,7 +22,7 @@ main :: IO ()
 main = do
     _ <- forkIO updateThread
     putStrLn ("Listening on port " ++ show port)
-    run port app
+    runSettings (defaultSettings & setPort port & setHost "127.0.0.1") app
     where
         port = 3000
 
