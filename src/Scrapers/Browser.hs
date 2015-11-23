@@ -34,6 +34,7 @@ import           Prelude                           hiding (last, (!!))
 data RequestLog = Get String | Post String [(ByteString, ByteString)] deriving (Eq, Ord, Show)
 type LogRecord a = (RequestLog, Response a)
 
+-- TODO switch to extensible-effects
 -- TODO Documentation
 newtype Browser a = Browser { runBr :: WriterT [LogRecord LBS.ByteString] (ReaderT Options (StateT CookieJar IO)) a } deriving (Functor, Applicative, Monad)
 
@@ -42,7 +43,7 @@ runBrowser o = fmap fst . runBrowserWithLog o
 
 runBrowserWithLog :: Options -> Browser a -> IO (a, [LogRecord LBS.ByteString])
 runBrowserWithLog o br =
-    fmap fst $ runStateT (runReaderT (runWriterT $ runBr br) options) def
+    fst <$> runStateT (runReaderT (runWriterT $ runBr br) options) def
         where
             options = o & checkStatus .~ Just (\_ _ _ -> Nothing)
 
@@ -85,6 +86,6 @@ postWith options url params = liftBrowser (Post url params) (\o -> W.postWith (m
 -- TODO type safety: differentiate types of transient and global
 mixOptions :: Options -> Options -> Options
 mixOptions transient global =
-    global & auth %~ (maybe (global ^. auth) (const $ transient ^. auth))
-           & headers .~ (nub $ global ^. headers <> transient ^. headers)
+    global & auth %~ maybe (global ^. auth) (const $ transient ^. auth)
+           & headers .~ nub (global ^. headers <> transient ^. headers)
            & cookies .~ (global ^. cookies <> transient ^. cookies)
