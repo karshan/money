@@ -1,11 +1,13 @@
-import Html exposing (Html, table, tr, td, text)
+import Html exposing (Html)
 import Http
 import Effects exposing (Effects, Never)
 import Json.Decode exposing (Decoder, object1, object4, list, string, int, (:=))
 import Maybe exposing (withDefault)
+import Model exposing (Model, Transaction)
 import Signal exposing (Address)
 import StartApp exposing (start)
 import Task exposing (Task)
+import View exposing (renderTransactions)
 
 app =
     start { init = init, view = view, update = update, inputs = [] }
@@ -18,37 +20,12 @@ port tasks =
     app.tasks
 
 type Action = LoadTransactions (List Transaction)
-type alias Model =
-    { transactions : List Transaction }
-type alias Transaction =
-    { description : String
-    , date : String
-    , amount : Int
-    , tags : List String
-    }
 
 init : (Model, Effects Action)
 init = (Model [], getTransactions)
 
 view : Address Action -> Model -> Html
 view _ {transactions} = renderTransactions transactions
-
-renderTransactions : List Transaction -> Html
-renderTransactions transactions =
-    let header = tr [] [ td [] [text "date"]
-                       , td [] [text "description"]
-                       , td [] [text "amount"]
-                       , td [] [text "tags"]
-                       ]
-    in table [] <| header::List.map renderTransaction transactions
-
-renderTransaction : Transaction -> Html
-renderTransaction {description, date, amount, tags} =
-    tr [] [ td [] [text date]
-          , td [] [text description]
-          , td [] [text (toString amount)]
-          , td [] [text (toString tags)]
-          ]
 
 update : Action -> Model -> (Model, Effects Action)
 update (LoadTransactions ts) m = ({ m | transactions = ts }, Effects.none)
