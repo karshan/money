@@ -24,16 +24,14 @@ executable money
   build-depends:       base
                      , network
                      , bytestring
-                     , CouchDB
+                     , couch-simple
                      , warp
                      , wreq
-                     , xml
                      , split
                      , transformers
                      , data-default-class
                      , containers
                      , time
-                     , json
                      , wai
                      , lens
                      , http-types
@@ -42,4 +40,12 @@ executable money
                      , hxt
                      , HandsomeSoup
                      , utf8-string
+                     , aeson
+                     , lens-aeson
+                     , servant-server
+                     , either
+                     , mtl
+                     , lens-aeson
+                     , unordered-containers
+                     , text
   default-language:    Haskell2010

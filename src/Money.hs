@@ -1,7 +1,10 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -fno-warn-missing-methods #-}
 module Money
     (
       Transaction(..)
-    , JUTCTime(..)
     , similarTransactions
     , fuzzyMatchChecks
     , monthStats
@@ -10,65 +13,27 @@ module Money
     )
     where
 
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Function (on)
 import Data.List (tails, sortBy, groupBy, foldl')
 import qualified Data.Map as Map (Map, unionWith, map, intersectionWith, fromList, toList, fromListWith)
 import Data.Maybe (listToMaybe, fromMaybe)
-import Data.Time (UTCTime)
+import Data.Time (Day)
 import Data.Time.Calendar (toGregorian)
-import Data.Time.Clock (utctDay)
-import Data.Time.Format (parseTimeM, formatTime, defaultTimeLocale)
+import GHC.Generics (Generic)
 import Util (listApp, count, median)
-import Text.JSON (Result(..), JSValue(..), JSON(..), toJSObject, fromJSObject, toJSString, fromJSString)
 
 data Transaction = Transaction { description :: String
-                               , date :: JUTCTime
+                               , date :: Day
                                , amount :: Int
                                , tags :: [String]
-                               } deriving (Show, Read, Eq, Ord)
+                               } deriving (Show, Read, Eq, Ord, Generic, FromJSON, ToJSON)
 
 tag :: Transaction -> String
 tag = fromMaybe "" . listToMaybe . tags
 
 month :: Transaction -> Int
-month = (\(_,m,_) -> m) . toGregorian . utctDay . runJUTCTime . date
-
--- Database.CouchDB forces us to use Text.JSON tsk tsk
--- with Aeson none of this instance code is required
--- though it "could" be cleaned up
-instance JSON Transaction where
-    -- It may not be immediately obvious that if any of the jslookup's fail the whole
-    -- thing will return an Error because of the monad instance of Result
-    readJSON (JSObject o) = let l = fromJSObject o
-        in do desc <- jslookup "description" l
-              dt <- jslookup "date" l
-              amt <- jslookup "amount" l
-              tg <- jslookup "tags" l
-              return Transaction { description = desc
-                                 , date = dt
-                                 , amount = amt
-                                 , tags = tg
-                                 }
-            where
-                jslookup k l = maybe (Error $ "missing key: " ++ k) readJSON (lookup k l)
-    readJSON _ = Error "Not an object"
-    showJSON t = showJSON $ toJSObject [
-                                          ("description", showJSON $ description t)
-                                        , ("date", showJSON $ date t)
-                                        , ("amount", showJSON $ amount t)
-                                        , ("tags", showJSONs $ tags t)
-                                       ]
-
-newtype JUTCTime = JUTCTime { runJUTCTime :: UTCTime } deriving (Eq, Ord, Show, Read)
-
-instance JSON JUTCTime where
-    readJSON (JSString s) = maybeToResult "parseTime Failed" $ JUTCTime <$> parseTimeM True defaultTimeLocale "%m/%d/%Y" (fromJSString s)
-        where
-            maybeToResult :: String -> Maybe a -> Result a
-            maybeToResult _ (Just a) = Ok a
-            maybeToResult st Nothing = Error st
-    readJSON _ = Error "not string"
-    showJSON d = showJSON $ toJSString $ formatTime defaultTimeLocale "%m/%d/%Y" (runJUTCTime d)
+month = (\(_,m,_) -> m) . toGregorian . date
 
 {-
     fuzzy string matching for transaction descriptions

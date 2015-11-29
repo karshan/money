@@ -12,9 +12,9 @@ import Data.Char (isSpace)
 import Data.List (elemIndices, isPrefixOf, isInfixOf)
 import Data.List.Split (splitOn)
 import Data.Maybe (mapMaybe)
-import Data.Time (UTCTime(..))
+import Data.Time (UTCTime(..), Day)
 import Data.Time.Format (parseTimeM, defaultTimeLocale)
-import Money (Transaction(..), JUTCTime(..))
+import Money (Transaction(..))
 import Util ((?), maybeRead, splitOnIndices, count, index)
 
 --TODO reimplement with Parsec
@@ -29,8 +29,8 @@ splitOnNonEscapedCommas str = splitOnIndices splitIndices str
 parseAmount :: String -> Maybe Int
 parseAmount a = ceiling . (* 100) <$> (maybeRead :: String -> Maybe Double) (filter (/='"') a)
 
-parseTime :: String -> String -> Maybe UTCTime
-parseTime = parseTimeM True defaultTimeLocale
+parseTime :: String -> String -> Maybe Day
+parseTime f = fmap utctDay . parseTimeM True defaultTimeLocale f
 
 -- Converts bank of america debit card csv output into [Transaction] Type
 -- TODO cleanup var names
@@ -46,7 +46,7 @@ parseDebit s = mapMaybe csvRecordToTransaction tRecords
             _description <- t `index` 1
             _amount <- parseAmount =<< t `index` 2
             return Transaction { description = _description
-                               , date = JUTCTime _date
+                               , date = _date
                                , amount = _amount
                                , tags = []
                                }
@@ -62,7 +62,7 @@ parseCredit s = mapMaybe recordToTransaction records
             _description <- (++) <$> t `index` 1 <*> ((:) ' ' <$> t `index` 2)
             _amount <- parseAmount =<< t `index` 4
             return Transaction { description = _description
-                               , date = JUTCTime _date
+                               , date = _date
                                , amount = _amount
                                , tags = []
                                }
@@ -80,7 +80,7 @@ parseTCF s = mapMaybe csvRecordToTransaction tRecords
             _isDebit <- (== "Debit") <$> t `index` 8
             _amount <- (\a -> if _isDebit then negate a else a) <$> (parseAmount =<< t `index` 2)
             return Transaction { description = _description
-                               , date = JUTCTime _date
+                               , date = _date
                                , amount = _amount
                                , tags = []
                                }
