@@ -9,9 +9,11 @@
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds  #-}
 module DB
-    ( DBConfig
+    ( DB
+    , DBConfig
     , Error
     , Transactions
+    , runDB
     , connect
     , getTransactions
     , updateTransactions
