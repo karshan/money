@@ -5,102 +5,71 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds  #-}
 module DB
     ( DB
-    , DBConfig
-    , Error
-    , Transactions
+    , DBContext
     , runDB
-    , connect
+    , openDB
     , getTransactions
-    , updateTransactions
+    , mergeTransactions
     )
     where
 
-import           Control.Lens                ((^?))
-import           Control.Monad.Except        (ExceptT, MonadError, runExceptT,
-                                              throwError)
-import           Control.Monad.IO.Class      (MonadIO)
-import           Control.Monad.Reader        (MonadReader, ReaderT, ask,
-                                              runReaderT)
-import           Data.Aeson                  (FromJSON, ToJSON, Value (..),
-                                              fromJSON)
-import           Data.Aeson.Lens             (key, _Object, _String)
-import           Data.Aeson.Util             (resultToEither)
-import           Data.Bool                   (bool)
-import           Data.Default.Class          (Default (..))
-import           Data.HashMap.Strict         (filterWithKey)
-import           Data.Maybe.Util             (maybeToEither)
-import           Data.Text                   (Text)
-import qualified Database.Couch.Explicit.Doc as Couch.Doc
-import           Database.Couch.Response     (asBool)
-import           Database.Couch.Types        (Context (..), Db (..), DocId (..),
-                                              DocRev (..), Port (..), modifyDoc,
-                                              retrieveDoc)
-import qualified Database.Couch.Types        as Couch (Error (..))
-import           GHC.Generics                (Generic)
-import           Money                       (Transaction)
-import           Network.HTTP.Client         (defaultManagerSettings,
-                                              newManager)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Control.Monad.Reader   (MonadReader, ReaderT, ask, runReaderT)
+import           Control.Monad.State    (get, put)
+import           Data.Acid
+import           Data.Function          (on)
+import           Data.List              (deleteFirstsBy)
+import           Data.SafeCopy
+import           Money                  (Transaction, amount, date, description)
 
--- Mainly using CouchDB for atomic operations
--- store a single document in database money named transactions
--- of the form:
--- {
---   "transactions": [
---     { "description": "Chipotle", ...},
---     ...
---   ],
---   // Fields in every couchdb Doc
---   "_id": "transactions"
---   "_rev": "2_akjnkanc..."
--- }
--- so now we can grab the list of transactions and update the list
--- atomically (basically we will fail if someone did an update in
--- the middle of ours)
+type DBContext = AcidState Database
+data Database = Database [Transaction]
 
-type DBConfig = Context
+$(deriveSafeCopy 0 'base ''Database)
+$(deriveSafeCopy 0 'base ''Transaction)
 
-data Error = CouchError Couch.Error | MyError String deriving (Show)
+mergeTransactions_ :: [Transaction] -> Update Database ()
+mergeTransactions_ new
+    = do Database old <- get
+         put $ Database (mergeTransactionsPure new old)
 
-newtype DB a = DB { unDB :: ReaderT DBConfig (ExceptT Error IO) a }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadReader DBConfig, MonadError Error)
+mergeTransactionsPure :: [Transaction] -> [Transaction] -> [Transaction]
+mergeTransactionsPure new old = old ++ deleteFirstsBy eqOnAllButTags new old
+   where
+       eqOnAllButTags = and2 [(==) `on` date, (==) `on` description, (==) `on` amount]
+       and2 :: [a -> a -> Bool] -> a -> a -> Bool
+       and2 fs a b = all (\f -> f a b) fs
 
-data Transactions = Transactions { transactions :: [Transaction] } deriving (Generic)
-instance ToJSON Transactions
-instance FromJSON Transactions
+getTransactions_ :: Query Database [Transaction]
+getTransactions_
+    = do Database ts <- ask
+         return ts
 
-connect :: IO DBConfig
-connect = do
-    mgr <- newManager defaultManagerSettings
-    return $ Context mgr "localhost" (Port 5984) Nothing def (Just (Db "money"))
+-- This will define @ViewMessage@ and @AddMessage@ for us.
+$(makeAcidic ''Database ['mergeTransactions_, 'getTransactions_])
 
-runDB :: DBConfig -> DB a -> IO (Either Error a)
-runDB ctx a = runExceptT (runReaderT (unDB a) ctx)
+newtype DB a = DB { unDB :: ReaderT (AcidState Database) IO a }
+    deriving (Functor, Applicative, Monad, MonadIO, MonadReader (AcidState Database))
 
-parseDoc :: (FromJSON a) => Value -> Either String (a, Text)
-parseDoc val = do
-    object <- maybeToEither "value not an object" $ val ^? _Object
-    revision <- maybeToEither "no _rev key" $ val ^? key "_rev" . _String
-    res <- resultToEither $ fromJSON $ Object $ filterWithKey (\k _ -> k /= "_id" && k /= "_rev") object
-    return (res, revision)
-
-runCouch :: (MonadIO m, MonadError Error m) => m (Either Couch.Error (a, b)) -> m a
-runCouch d = either (throwError . CouchError) (return . fst) =<< d
-
--- getTransactions :: (MonadIO m, MonadError Error m, MonadReader DBConfig m) => m (Transactions, Text)
-getTransactions :: DB (Transactions, Text)
+getTransactions :: DB [Transaction]
 getTransactions = do
-    ctx <- ask
-    v <- runCouch $ Couch.Doc.get retrieveDoc (DocId "transactions") Nothing ctx
-    either (throwError . MyError) return $ parseDoc v
+    database <- ask
+    liftIO $ query database GetTransactions_
 
-updateTransactions :: ([Transaction] -> [Transaction]) -> DB ()
-updateTransactions f = do
-    ctx <- ask
-    (Transactions ts, rev) <- getTransactions
-    v <- runCouch $ asBool <$> Couch.Doc.put modifyDoc (DocId "transactions") (Just (DocRev rev)) (Transactions $ f ts) ctx
-    bool (throwError $ MyError "Doc.put returned false") (return ()) v
+mergeTransactions :: [Transaction] -> DB ()
+mergeTransactions new = do
+    database <- ask
+    liftIO $ update database (MergeTransactions_ new)
+
+runDB :: DBContext -> DB a -> IO a
+runDB db (DB a) = runReaderT a db
+
+openDB :: FilePath -> IO DBContext
+openDB fp = openLocalStateFrom fp (Database [])

@@ -24,7 +24,6 @@ executable money
   build-depends:       base
                      , network
                      , bytestring
-                     , couch-simple
                      , warp
                      , wreq
                      , split
@@ -48,4 +47,6 @@ executable money
                      , lens-aeson
                      , unordered-containers
                      , text
+                     , acid-state
+                     , safecopy
   default-language:    Haskell2010
