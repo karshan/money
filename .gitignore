@@ -3,3 +3,4 @@ dist/
 Setup.hs
 cabal.sandbox.config
 tags
+transactions.aciddb
