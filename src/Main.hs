@@ -20,7 +20,7 @@ import           Network.HTTP.Types.Status  (ok200)
 import           Network.Wai                (Application, responseFile)
 import           Network.Wai.Handler.Warp   (defaultSettings, runSettings,
                                              setHost, setPort)
-import           Scrapers                   (Credential)
+import           Scrapers                   (Credential, showCredential)
 import qualified Scrapers                   (getAllTransactions)
 import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
                                              JSON, Proxy (..), Put, Raw,
@@ -31,6 +31,7 @@ type API = MoneyAPI :<|> StaticAPI
 
 type MoneyAPI =
          "transactions"  :> Get '[JSON] [Transaction]
+    :<|> "credentials"   :> Get '[JSON] [(String, String)] -- [(service, username)]
     :<|> "addCredential" :> ReqBody '[JSON] Credential
                          :> Put '[JSON] ()
 
@@ -53,6 +54,7 @@ staticServer _ respond = respond $ responseFile ok200 [("Content-Type", "text/ht
 
 dbServer :: ServerT MoneyAPI DB
 dbServer = DB.getTransactions
+      :<|> (map showCredential <$> DB.getCredentials)
       :<|> DB.addCredential
 
 main :: IO ()
