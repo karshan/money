@@ -5,6 +5,7 @@ module Scrapers.BankOfAmerica (getAllTransactions) where
 
 import           Control.Lens           (view, (&))
 import           Control.Monad          (void)
+import           Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString        as BS (ByteString)
 import           Data.ByteString.Lazy   (toStrict)
 import           Data.ByteString.UTF8   (toString)
@@ -17,7 +18,7 @@ import           Money                  (Transaction)
 import           Network.Wreq           (defaults, responseBody)
 import           ParseCSV               (parseCredit, parseDebit)
 import           Prelude                hiding (head, id, last, print, (!!))
-import           Scrapers.Browser       (get, lift, post, runBrowserWithLog)
+import           Scrapers.Browser       (get, post, runBrowserWithLog)
 import           Scrapers.Common        (Cred (..), queryParamsFromUrl)
 import           Text.HandsomeSoup.Util (css', cssSingle')
 import           Text.XML.HXT.Core      (getAttrValue, getChildren, getText,
@@ -70,7 +71,7 @@ getAllTransactions cred = fmap fst $
         let creditCardAdxs = css' ".AccountItemCreditCard" (getAttrValue "data-adx") accountView
 
         bankAccountTransactions <- concat <$> mapM (\adx -> do
-            now <- lift getCurrentTime
+            now <- liftIO getCurrentTime
             let showTime = fromString . formatTime defaultTimeLocale "%m/%d/%Y"
             let oneYearInSeconds = 365*24*60*60
             (parseDebit . toString . toStrict . view responseBody) <$>
