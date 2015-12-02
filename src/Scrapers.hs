@@ -1,20 +1,26 @@
 {-# LANGUAGE LambdaCase #-}
 module Scrapers
-    ( Cred (..)
-    , Credential (..)
-    , getAllTransactions
-    , showCredential
+    ( getAllTransactions
     ) where
 
+import           Control.Monad.IO.Class (liftIO)
+import           DB                     (DB)
+import qualified DB                     (addLog, getCookieJar, getCredentials,
+                                         putCookieJar)
 import           Money                  (Transaction)
+import           Network.Wreq           (defaults)
 import qualified Scrapers.BankOfAmerica as BankOfAmerica (getAllTransactions)
-import           Scrapers.Common        (Cred (..), Credential (..))
+import           Scrapers.Browser       (Error, runBrowser)
+import           Scrapers.Common        (Credential (..))
 
-getAllTransactions :: [Credential] -> IO [Transaction]
-getAllTransactions creds = concat <$> mapM (\case
-    BankOfAmericaCreds c -> BankOfAmerica.getAllTransactions c
-    _                    -> return []) creds
-
-showCredential :: Credential -> (String, String)
-showCredential (BankOfAmericaCreds c) = ("BankOfAmerica", username c)
-showCredential (ChaseCreds c)         = ("Chase"        , username c)
+getAllTransactions :: DB (Either Error [Transaction])
+getAllTransactions = do
+    creds <- DB.getCredentials
+    cj <- DB.getCookieJar
+    (result, cookieJar, log_) <- liftIO $ runBrowser cj defaults $ concat <$> mapM (\case
+        BankOfAmericaCreds c -> BankOfAmerica.getAllTransactions c
+        _                    -> return []) creds
+    let exception = either (Just . show) (const Nothing) result
+    DB.addLog (log_, exception)
+    DB.putCookieJar cookieJar
+    return result

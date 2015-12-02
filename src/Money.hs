@@ -1,5 +1,5 @@
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
 module Money
@@ -13,20 +13,22 @@ module Money
     )
     where
 
-import Data.Aeson (FromJSON, ToJSON)
-import Data.Function (on)
-import Data.List (tails, sortBy, groupBy, foldl')
-import qualified Data.Map as Map (Map, unionWith, map, intersectionWith, fromList, toList, fromListWith)
-import Data.Maybe (listToMaybe, fromMaybe)
-import Data.Time (Day)
-import Data.Time.Calendar (toGregorian)
-import GHC.Generics (Generic)
-import Util (listApp, count, median)
+import           Data.Aeson         (FromJSON, ToJSON)
+import           Data.Function      (on)
+import           Data.List          (foldl', groupBy, sortBy, tails)
+import qualified Data.Map           as Map (Map, fromList, fromListWith,
+                                            intersectionWith, map, toList,
+                                            unionWith)
+import           Data.Maybe         (fromMaybe, listToMaybe)
+import           Data.Time          (Day)
+import           Data.Time.Calendar (toGregorian)
+import           GHC.Generics       (Generic)
+import           Util               (count, listApp, median)
 
 data Transaction = Transaction { description :: String
-                               , date :: Day
-                               , amount :: Int
-                               , tags :: [String]
+                               , date        :: Day
+                               , amount      :: Int
+                               , tags        :: [String]
                                } deriving (Show, Read, Eq, Ord, Generic, FromJSON, ToJSON)
 
 tag :: Transaction -> String
@@ -73,7 +75,6 @@ fuzzyMatchChecks = [ fuzzyMatch "hello world" "hello world" > fuzzyMatch "hello 
                    , fuzzyMatch "hello world" "hello world" == fuzzyMatch "hello hello" "hello hello"
                    ]
 
--- TODO use Arrows ?
 similarTransactions :: Transaction -> [Transaction] -> [(Double, Transaction)]
 similarTransactions t = sortBy (flip compare `on` fst) . map (\x -> (score x, x))
     where

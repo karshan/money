@@ -14,14 +14,16 @@ import           Data.Time.Clock            (getCurrentTime)
 import           Data.Time.Format           (defaultTimeLocale, formatTime)
 import           DB                         (DB, DBContext, openDB, runDB)
 import qualified DB                         (addCredential, getCredentials,
-                                             getTransactions, mergeTransactions)
+                                             getLogs, getTransactions,
+                                             mergeTransactions)
 import           Money                      (Transaction (..))
 import           Network.HTTP.Types.Status  (ok200)
 import           Network.Wai                (Application, responseFile)
 import           Network.Wai.Handler.Warp   (defaultSettings, runSettings,
                                              setHost, setPort)
-import           Scrapers                   (Credential, showCredential)
 import qualified Scrapers                   (getAllTransactions)
+import           Scrapers.Browser           (LogRecord)
+import           Scrapers.Common            (Credential, showCredential)
 import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
                                              JSON, Proxy (..), Put, Raw,
                                              ReqBody, ServantErr (..), Server,
@@ -34,6 +36,7 @@ type MoneyAPI =
     :<|> "credentials"   :> Get '[JSON] [(String, String)] -- [(service, username)]
     :<|> "addCredential" :> ReqBody '[JSON] Credential
                          :> Put '[JSON] ()
+    :<|> "logs"          :> Get '[JSON] [([LogRecord], Maybe String)]
 
 type StaticAPI = "" :> Raw
 
@@ -56,6 +59,7 @@ dbServer :: ServerT MoneyAPI DB
 dbServer = DB.getTransactions
       :<|> (map showCredential <$> DB.getCredentials)
       :<|> DB.addCredential
+      :<|> DB.getLogs
 
 main :: IO ()
 main = do
@@ -67,11 +71,10 @@ main = do
 
 updateThread :: DB ()
 updateThread = forever $ do
-    creds <- DB.getCredentials
-    new <- liftIO $ Scrapers.getAllTransactions creds
-    numNewTs <- DB.mergeTransactions new
-    now <- formatTime defaultTimeLocale "%m/%d/%Y %T" <$> liftIO getCurrentTime
-    liftIO $ putStrLn $ "updated transactions " ++ now ++ ": " ++ show numNewTs ++ " new transactions"
-    liftIO $ threadDelay $ periodInMinutes * 60 * (10 ^ (6 :: Int))
-        where
-            periodInMinutes = 60
+    let periodUs = 60 * 60 * 10 ^ (6 :: Int) -- 1 minute = 60 * 10 ^ 6
+    result <- Scrapers.getAllTransactions
+    result & either (\e -> liftIO (print e) >> liftIO (threadDelay periodUs)) (\new -> do
+        numNewTs <- DB.mergeTransactions new
+        now <- formatTime defaultTimeLocale "%m/%d/%Y %T" <$> liftIO getCurrentTime
+        liftIO $ putStrLn $ "updated transactions " ++ now ++ ": " ++ show numNewTs ++ " new transactions"
+        liftIO $ threadDelay periodUs)

@@ -4,6 +4,7 @@
 module Scrapers.Common
     ( Cred (..)
     , Credential (..)
+    , showCredential
     , queryParamsFromUrl
     ) where
 
@@ -30,6 +31,10 @@ data Cred = Cred { username              :: String
                  , password              :: String
                  , secretQuestionAnswers :: [(String, String)]
                  } deriving (Generic, ToJSON, FromJSON)
+
+showCredential :: Credential -> (String, String)
+showCredential (BankOfAmericaCreds c) = ("BankOfAmerica", username c)
+showCredential (ChaseCreds c)         = ("Chase"        , username c)
 
 queryParamsFromUrl :: String -> [(String, String)]
 queryParamsFromUrl url =

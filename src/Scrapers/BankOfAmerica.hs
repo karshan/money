@@ -15,10 +15,10 @@ import           Data.String            (fromString)
 import           Data.Time.Clock        (addUTCTime, getCurrentTime)
 import           Data.Time.Format       (defaultTimeLocale, formatTime)
 import           Money                  (Transaction)
-import           Network.Wreq           (defaults, responseBody)
+import           Network.Wreq           (responseBody)
 import           ParseCSV               (parseCredit, parseDebit)
 import           Prelude                hiding (head, id, last, print, (!!))
-import           Scrapers.Browser       (get, post, runBrowserWithLog)
+import           Scrapers.Browser       (Browser, get, post)
 import           Scrapers.Common        (Cred (..), queryParamsFromUrl)
 import           Text.HandsomeSoup.Util (css', cssSingle')
 import           Text.XML.HXT.Core      (getAttrValue, getChildren, getText,
@@ -44,10 +44,8 @@ csrfTokenSelector, secretQuestionSelector :: String
 csrfTokenSelector = "#csrfTokenHidden"
 secretQuestionSelector = "[for=tlpvt-challenge-answer]"
 
--- TODO exceptionhandling, and logging
-getAllTransactions :: Cred -> IO [Transaction]
-getAllTransactions cred = fmap fst $
-    runBrowserWithLog defaults $ do
+getAllTransactions :: Cred -> Browser [Transaction]
+getAllTransactions cred = do
         void $ get homeUrl
         loginResponse <- view responseBody <$>
             post loginUrl

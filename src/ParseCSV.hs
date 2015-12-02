@@ -8,18 +8,15 @@ module ParseCSV
     )
     where
 
-import Data.Char (isSpace)
-import Data.List (elemIndices, isPrefixOf, isInfixOf)
-import Data.List.Split (splitOn)
-import Data.Maybe (mapMaybe)
-import Data.Time (UTCTime(..), Day)
-import Data.Time.Format (parseTimeM, defaultTimeLocale)
-import Money (Transaction(..))
-import Util ((?), maybeRead, splitOnIndices, count, index)
+import           Data.Char        (isSpace)
+import           Data.List        (elemIndices, isInfixOf, isPrefixOf)
+import           Data.List.Split  (splitOn)
+import           Data.Maybe       (mapMaybe)
+import           Data.Time        (Day, UTCTime (..))
+import           Data.Time.Format (defaultTimeLocale, parseTimeM)
+import           Money            (Transaction (..))
+import           Util             (count, index, maybeRead, splitOnIndices, (?))
 
---TODO reimplement with Parsec
-
---TODO generalize,parameterize ?
 splitOnNonEscapedCommas :: String -> [String]
 splitOnNonEscapedCommas str = splitOnIndices splitIndices str
     where
@@ -33,7 +30,6 @@ parseTime :: String -> String -> Maybe Day
 parseTime f = fmap utctDay . parseTimeM True defaultTimeLocale f
 
 -- Converts bank of america debit card csv output into [Transaction] Type
--- TODO cleanup var names
 parseDebit :: String -> [Transaction]
 parseDebit s = mapMaybe csvRecordToTransaction tRecords
     where
