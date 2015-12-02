@@ -1,26 +1,15 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# OPTIONS_GHC -fno-warn-missing-methods #-}
+{-# LANGUAGE LambdaCase #-}
 module Scrapers
-    ( Cred(..)
-    , Credential(..)
+    ( Cred (..)
+    , Credential (..)
+    , getAllTransactions
     ) where
 
-import Data.Aeson   (FromJSON, ToJSON)
-import GHC.Generics (Generic)
+import           Money                  (Transaction)
+import qualified Scrapers.BankOfAmerica as BankOfAmerica (getAllTransactions)
+import           Scrapers.Common        (Cred (..), Credential (..))
 
--- encode $ BankOfAmericaCreds $ Cred "hi" "there" [("a","b")] =
--- {
---   "tag": "BankOfAmericaCreds",
---   "contents": {
---     "username":"hi",
---     "password":"there",
---     "secretQuestionAnswers": [["a","b"]]
---   }
--- }
-data Credential = BankOfAmericaCreds Cred | ChaseCreds Cred deriving (Eq, Ord, Show, Generic, FromJSON, ToJSON)
-
-data Cred = Cred { username :: String
-                 , password :: String
-                 , secretQuestionAnswers :: [(String, String)]
-                 } deriving (Eq, Ord, Show, Generic, ToJSON, FromJSON)
+getAllTransactions :: [Credential] -> IO [Transaction]
+getAllTransactions creds = concat <$> mapM (\case
+    BankOfAmericaCreds c -> BankOfAmerica.getAllTransactions c
+    _                    -> return []) creds

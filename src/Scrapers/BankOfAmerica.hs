@@ -1,15 +1,15 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE OverloadedStrings    #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
-module Scrapers.BankOfAmerica (getLatestTransactions) where
+module Scrapers.BankOfAmerica (getAllTransactions) where
 
 import           Control.Lens           (view, (&))
 import           Control.Monad          (void)
-import Data.List (isInfixOf)
 import qualified Data.ByteString        as BS (ByteString)
 import           Data.ByteString.Lazy   (toStrict)
 import           Data.ByteString.UTF8   (toString)
-import           Data.Maybe             (listToMaybe, fromMaybe, mapMaybe)
+import           Data.List              (isInfixOf)
+import           Data.Maybe             (fromMaybe, listToMaybe, mapMaybe)
 import           Data.String            (fromString)
 import           Data.Time.Clock        (addUTCTime, getCurrentTime)
 import           Data.Time.Format       (defaultTimeLocale, formatTime)
@@ -18,23 +18,13 @@ import           Network.Wreq           (defaults, responseBody)
 import           ParseCSV               (parseCredit, parseDebit)
 import           Prelude                hiding (head, id, last, print, (!!))
 import           Scrapers.Browser       (get, lift, post, runBrowserWithLog)
-import           Scrapers.Common        (queryParamsFromUrl)
+import           Scrapers.Common        (Cred (..), queryParamsFromUrl)
 import           Text.HandsomeSoup.Util (css', cssSingle')
 import           Text.XML.HXT.Core      (getAttrValue, getChildren, getText,
                                          hasName, (>>>))
 
-getAnswer :: String -> BS.ByteString
-getAnswer s = maybe (error "secret answer not found") snd $ listToMaybe $ filter (\(k, _) -> k `isInfixOf` s)
-    [ ("pet"   , "***REMOVED***")
-    , ("car"   , "***REMOVED***")
-    , ("friend", "***REMOVED***")
-    ]
-
-username :: BS.ByteString
-username = "***REMOVED***"
-
-password :: BS.ByteString
-password = "***REMOVED***"
+getAnswer :: String -> [(String, String)] -> BS.ByteString
+getAnswer s maap = fromString <$> maybe (error "secret answer not found") snd $ listToMaybe $ filter (\(k, _) -> k `isInfixOf` s) maap
 
 homeUrl, baseUrl, loginUrl, challengeAnswerUrl :: String
 homeUrl = "https://www.bankofamerica.com/"
@@ -54,14 +44,14 @@ csrfTokenSelector = "#csrfTokenHidden"
 secretQuestionSelector = "[for=tlpvt-challenge-answer]"
 
 -- TODO exceptionhandling, and logging
-getLatestTransactions :: IO [Transaction]
-getLatestTransactions = fmap fst $
+getAllTransactions :: Cred -> IO [Transaction]
+getAllTransactions cred = fmap fst $
     runBrowserWithLog defaults $ do
         void $ get homeUrl
         loginResponse <- view responseBody <$>
             post loginUrl
-                [ ("Access_ID", username)
-                , ("passcode", password)
+                [ ("Access_ID", fromString $ username cred)
+                , ("passcode", fromString $ password cred)
                 ]
 
         let mCsrfToken = cssSingle' csrfTokenSelector (getAttrValue "value") loginResponse
@@ -71,8 +61,8 @@ getLatestTransactions = fmap fst $
                 Just . view responseBody <$>
                     post challengeAnswerUrl
                         [ ("csrfTokenHidden", fromString csrfToken)
-                        , ("challengeQuestionAnswer", getAnswer secretQuestionText)
-                        , ("challengeQuestionAnswer-masked", getAnswer secretQuestionText)
+                        , ("challengeQuestionAnswer", getAnswer secretQuestionText $ secretQuestionAnswers cred)
+                        , ("challengeQuestionAnswer-masked", getAnswer secretQuestionText $ secretQuestionAnswers cred)
                         ]))
 
         let accountView = mChallengeAnswerResponse & fromMaybe (error "implement me")

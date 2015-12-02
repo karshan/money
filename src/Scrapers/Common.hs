@@ -1,11 +1,35 @@
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DeriveGeneric  #-}
+{-# OPTIONS_GHC -fno-warn-missing-methods #-}
 module Scrapers.Common
-    ( queryParamsFromUrl
+    ( Cred (..)
+    , Credential (..)
+    , queryParamsFromUrl
     ) where
 
+import           Data.Aeson      (FromJSON, ToJSON)
 import           Data.List.Split (splitOn)
 import           Data.List.Util  ((!!))
 import           Data.Maybe      (mapMaybe)
+import           GHC.Generics    (Generic)
 import           Prelude         hiding (last, (!!))
+
+
+-- Aeson.encode $ BankOfAmericaCreds $ Cred "hi" "there" [("a","b")] =
+-- {
+--   "tag": "BankOfAmericaCreds",
+--   "contents": {
+--     "username":"hi",
+--     "password":"there",
+--     "secretQuestionAnswers": [["a","b"]]
+--   }
+-- }
+data Credential = BankOfAmericaCreds Cred | ChaseCreds Cred deriving (Generic, FromJSON, ToJSON)
+
+data Cred = Cred { username              :: String
+                 , password              :: String
+                 , secretQuestionAnswers :: [(String, String)]
+                 } deriving (Generic, ToJSON, FromJSON)
 
 queryParamsFromUrl :: String -> [(String, String)]
 queryParamsFromUrl url =

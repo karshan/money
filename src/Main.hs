@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE TypeOperators     #-}
@@ -12,14 +13,15 @@ import           Data.Function              ((&))
 import           Data.Time.Clock            (getCurrentTime)
 import           Data.Time.Format           (defaultTimeLocale, formatTime)
 import           DB                         (DB, DBContext, openDB, runDB)
-import qualified DB                         (getTransactions, mergeTransactions)
+import qualified DB                         (addCredential, getCredentials,
+                                             getTransactions, mergeTransactions)
 import           Money                      (Transaction (..))
 import           Network.HTTP.Types.Status  (ok200)
 import           Network.Wai                (Application, responseFile)
 import           Network.Wai.Handler.Warp   (defaultSettings, runSettings,
                                              setHost, setPort)
 import           Scrapers                   (Credential)
-import           Scrapers.BankOfAmerica     (getLatestTransactions)
+import qualified Scrapers                   (getAllTransactions)
 import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
                                              JSON, Proxy (..), Put, Raw,
                                              ReqBody, ServantErr (..), Server,
@@ -28,9 +30,9 @@ import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
 type API = MoneyAPI :<|> StaticAPI
 
 type MoneyAPI =
-         "transactions" :> Get '[JSON] [Transaction]
-    :<|> "credentials"  :> ReqBody '[JSON] Credential
-                        :> Put '[JSON] Bool
+         "transactions"  :> Get '[JSON] [Transaction]
+    :<|> "addCredential" :> ReqBody '[JSON] Credential
+                         :> Put '[JSON] ()
 
 type StaticAPI = "" :> Raw
 
@@ -50,14 +52,8 @@ staticServer :: Server StaticAPI
 staticServer _ respond = respond $ responseFile ok200 [("Content-Type", "text/html")] "index.html" Nothing
 
 dbServer :: ServerT MoneyAPI DB
-dbServer = transactions
-      :<|> credentials
-
-transactions :: DB [Transaction]
-transactions = DB.getTransactions
-
-credentials :: Credential -> DB Bool
-credentials = error "credentials endpoint not implemented"
+dbServer = DB.getTransactions
+      :<|> DB.addCredential
 
 main :: IO ()
 main = do
@@ -69,10 +65,11 @@ main = do
 
 updateThread :: DB ()
 updateThread = forever $ do
-    new <- liftIO getLatestTransactions
-    void $ DB.mergeTransactions new
+    creds <- DB.getCredentials
+    new <- liftIO $ Scrapers.getAllTransactions creds
+    numNewTs <- DB.mergeTransactions new
     now <- formatTime defaultTimeLocale "%m/%d/%Y %T" <$> liftIO getCurrentTime
-    liftIO $ putStrLn $ "updated transactions " ++ now
+    liftIO $ putStrLn $ "updated transactions " ++ now ++ ": " ++ show numNewTs ++ " new transactions"
     liftIO $ threadDelay $ periodInMinutes * 60 * (10 ^ (6 :: Int))
         where
             periodInMinutes = 60
