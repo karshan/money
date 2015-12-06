@@ -16,6 +16,6 @@ renderTransaction : Transaction -> Html
 renderTransaction {description, date, amount, tags} =
     tr [] [ td [] [text date]
           , td [] [text description]
-          , td [] [text (toString amount)]
+          , td [] [text (toString <| (-1 * (toFloat amount))/100)]
           , td [] [text (toString tags)]
           ]
