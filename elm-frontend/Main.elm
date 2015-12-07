@@ -81,7 +81,7 @@ performAddTag m =
 
 getTransactions : Effects Action
 getTransactions =
-    Http.get (list transaction) "https://karshan.me:8443/transactions"
+    Http.get (tuple2 (,) string (list transaction)) "https://karshan.me:8443/transactions"
       |> Task.toMaybe
       |> Task.map (LoadTransactions << withDefault ("", []))
       |> Effects.task
