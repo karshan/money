@@ -38,7 +38,7 @@ type MoneyAPI =
                          :> Put '[JSON] ()
     :<|> "logs"          :> Get '[JSON] [([LogRecord], Maybe String)]
 
-type StaticAPI = "" :> Raw
+type StaticAPI = "money" :> Raw
 
 api :: Proxy API
 api = Proxy
@@ -53,7 +53,7 @@ server ctx = enter (Nat nat) dbServer :<|> staticServer
         nat a = liftIO $ runDB ctx a
 
 staticServer :: Server StaticAPI
-staticServer _ respond = respond $ responseFile ok200 [("Content-Type", "text/html")] "index.html" Nothing
+staticServer _ respond = respond $ responseFile ok200 [("Content-Type", "text/html")] "elm-frontend/index.html" Nothing
 
 dbServer :: ServerT MoneyAPI DB
 dbServer = DB.getTransactions
