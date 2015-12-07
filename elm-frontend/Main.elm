@@ -66,7 +66,7 @@ update action m = case action of
 
 getTransactions : Effects Action
 getTransactions =
-    Http.get (list transaction) "http://karshan.me:8443/transactions"
+    Http.get (list transaction) "https://karshan.me:8443/transactions"
       |> Task.toMaybe
       |> Task.map (LoadTransactions << withDefault [])
       |> Effects.task
