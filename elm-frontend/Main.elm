@@ -14,6 +14,9 @@ import Task exposing (Task)
 import View exposing (renderTransactions)
 import List exposing (filter, sortBy, reverse, length)
 
+baseUrl : String
+baseUrl = "https://karshan.me:8443/"
+
 app =
     start { init = init, view = view, update = update, inputs = [] }
 
@@ -81,7 +84,7 @@ performAddTag m =
     Http.send Http.defaultSettings
         { verb = "PUT"
         , headers = [("Content-Type", "application/json")]
-        , url = "http://localhost:3000/addTags"
+        , url = baseUrl `append` "addTags"
         , body = Http.string <| encode 0 <| Json.Encode.list <| List.map Json.Encode.string [m.transactionsRev, m.currentFilter, m.addTag]
         } |> Http.fromJson bool
           |> Task.toMaybe
@@ -90,7 +93,7 @@ performAddTag m =
 
 getTransactions : Effects Action
 getTransactions =
-    Http.get (tuple2 (,) string (list transaction)) "https://karshan.me:8443/transactions"
+    Http.get (tuple2 (,) string (list transaction)) (baseUrl `append` "transactions")
       |> Task.toMaybe
       |> Task.map (LoadTransactions << withDefault ("", []))
       |> Effects.task
