@@ -1,21 +1,28 @@
 module View where
 
 import Html exposing (Html, table, tr, td, text)
+import Html.Attributes exposing (style)
 import Model exposing (Transaction)
+
+trStyle = []
+tdStyle = [("border", "solid 1px gray")]
+tableStyle = [("width", "100%"), ("border", "solid 1px gray"), ("border-collapse", "collapse")]
 
 renderTransactions : List Transaction -> Html
 renderTransactions transactions =
-    let header = tr [] [ td [] [text "date"]
-                       , td [] [text "description"]
-                       , td [] [text "amount"]
-                       , td [] [text "tags"]
+    let header = tr [style trStyle]
+                       [ td [style tdStyle] [text "date"]
+                       , td [style tdStyle] [text "description"]
+                       , td [style tdStyle] [text "amount"]
+                       , td [style tdStyle] [text "tags"]
                        ]
-    in table [] <| header::List.map renderTransaction transactions
+    in table [style tableStyle] <| header::List.map renderTransaction transactions
 
 renderTransaction : Transaction -> Html
 renderTransaction {description, date, amount, tags} =
-    tr [] [ td [] [text date]
-          , td [] [text description]
-          , td [] [text (toString <| (-1 * (toFloat amount))/100)]
-          , td [] [text (toString tags)]
+    tr [style trStyle]
+          [ td [style tdStyle] [text date]
+          , td [style tdStyle] [text description]
+          , td [style tdStyle] [text (toString <| (-1 * (toFloat amount))/100)]
+          , td [style tdStyle] [text (toString tags)]
           ]
