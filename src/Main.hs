@@ -13,9 +13,9 @@ import           Data.Function              ((&))
 import           Data.Time.Clock            (getCurrentTime)
 import           Data.Time.Format           (defaultTimeLocale, formatTime)
 import           DB                         (DB, DBContext, openDB, runDB)
-import qualified DB                         (addCredential, getCredentials,
-                                             getLogs, getTransactions,
-                                             mergeTransactions)
+import qualified DB                         (addCredential, addTags,
+                                             getCredentials, getLogs,
+                                             getTransactions, mergeTransactions)
 import           Money                      (Transaction (..))
 import           Network.HTTP.Types.Status  (ok200)
 import           Network.Wai                (Application, responseFile)
@@ -33,6 +33,8 @@ type API = MoneyAPI :<|> StaticAPI
 
 type MoneyAPI =
          "transactions"  :> Get '[JSON] (String, [Transaction])
+    :<|> "addTags"       :> ReqBody '[JSON] (String, String, String)
+                         :> Put '[JSON] Bool
     :<|> "credentials"   :> Get '[JSON] [(String, String)] -- [(service, username)]
     :<|> "addCredential" :> ReqBody '[JSON] Credential
                          :> Put '[JSON] ()
@@ -57,6 +59,7 @@ staticServer _ respond = respond $ responseFile ok200 [("Content-Type", "text/ht
 
 dbServer :: ServerT MoneyAPI DB
 dbServer = DB.getTransactions
+      :<|> (\(rev, filter', tag) -> DB.addTags rev filter' tag)
       :<|> (map showCredential <$> DB.getCredentials)
       :<|> DB.addCredential
       :<|> DB.getLogs

@@ -3,7 +3,8 @@ import Html.Attributes exposing (autofocus, style, placeholder)
 import Html.Events exposing (onKeyPress, on, targetValue)
 import Http
 import Effects exposing (Effects, Never)
-import Json.Decode exposing (Decoder, tuple2, object1, object4, list, string, int, (:=))
+import Json.Decode exposing (Decoder, tuple2, object1, object4, list, string, int, bool, (:=))
+import Json.Encode exposing (encode)
 import Maybe exposing (withDefault)
 import Model exposing (Model, Transaction, initModel)
 import Signal exposing (Address, message)
@@ -27,6 +28,7 @@ type Action = LoadTransactions (String, List Transaction)
             | Filter String
             | AddTag String
             | PerformAddTag
+            | AddTagResponse Bool
             | NoOp
 
 init : (Model, Effects Action)
@@ -36,8 +38,8 @@ inputStyle = [("width", "100%"), ("height", "2em"), ("border", "solid 1px gray")
 textStyle = [("text-align", "center"), ("padding", ".5em"), ("border", "solid 1px gray")]
 
 view : Address Action -> Model -> Html
-view address {transactions, transactionsRev, currentFilter, addTag} =
-    let filteredTransactions = filter (doFilter currentFilter) <| reverse <| sortBy .date transactions
+view address m =
+    let filteredTransactions = filter (doFilter m.currentFilter) <| reverse <| sortBy .date m.transactions
     in div
         [
         ]
@@ -57,7 +59,8 @@ view address {transactions, transactionsRev, currentFilter, addTag} =
             []
         , div [ style textStyle ]
             [ text ((toString (length filteredTransactions) `append` " transactions")
-                    `append` " (rev " `append` (left 10 transactionsRev) `append` ")")]
+                    `append` " (rev " `append` (left 10 m.transactionsRev) `append` ")")]
+        , div [ style textStyle ] [ text (toString m.error) ]
         , renderTransactions filteredTransactions
         ]
 
@@ -69,15 +72,21 @@ update action m = case action of
     (LoadTransactions (rev, ts)) -> ({ m | transactions = ts, transactionsRev = rev }, Effects.none)
     (Filter s) -> ({ m | currentFilter = s }, Effects.none)
     (AddTag s) -> ({ m | addTag = s }, Effects.none)
-    PerformAddTag -> (performAddTag m, Effects.none)
+    PerformAddTag -> (m, performAddTag m)
+    AddTagResponse b -> if b then (m, getTransactions) else ({ m | error = True }, Effects.none)
     NoOp -> (m, Effects.none)
 
-performAddTag : Model -> Model
+performAddTag : Model -> Effects Action
 performAddTag m =
-    { m | transactions =
-            List.map (\t -> if doFilter m.currentFilter t
-                            then { t | tags = t.tags `List.append` [m.addTag] }
-                            else t) m.transactions}
+    Http.send Http.defaultSettings
+        { verb = "PUT"
+        , headers = [("Content-Type", "application/json")]
+        , url = "http://localhost:3000/addTags"
+        , body = Http.string <| encode 0 <| Json.Encode.list <| List.map Json.Encode.string [m.transactionsRev, m.currentFilter, m.addTag]
+        } |> Http.fromJson bool
+          |> Task.toMaybe
+          |> Task.map (AddTagResponse << withDefault False)
+          |> Effects.task
 
 getTransactions : Effects Action
 getTransactions =

@@ -5,6 +5,7 @@ type alias Model =
     , transactionsRev : String
     , currentFilter : String
     , addTag : String
+    , error : Bool
     }
 type alias Transaction =
     { description : String
@@ -14,4 +15,4 @@ type alias Transaction =
     }
 
 initModel : Model
-initModel = Model [] "" "" ""
+initModel = Model [] "" "" "" False
