@@ -1,8 +1,9 @@
 module View where
 
-import Html exposing (Html, table, tr, td, text)
+import Html exposing (Html, div, table, tr, td, text)
 import Html.Attributes exposing (style)
 import Model exposing (Transaction)
+import String exposing (isEmpty)
 
 trStyle = []
 tdStyle = [("border", "solid 1px gray")]

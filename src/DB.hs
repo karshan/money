@@ -34,9 +34,13 @@ import           Control.Monad.Reader   (MonadReader, ReaderT, ask, runReaderT)
 import           Control.Monad.State    (get, put)
 import           Data.Acid              (AcidState, Query, Update, makeAcidic,
                                          openLocalStateFrom, query, update)
+import           Data.Aeson             (encode)
+import           Data.ByteString.Lazy   (toStrict)
+import           Data.ByteString.UTF8   (toString)
 import           Data.Default.Class     (def)
 import           Data.Function          (on)
 import           Data.List              (deleteFirstsBy)
+import           Data.Maybe             (isJust)
 import           Data.SafeCopy          (base, deriveSafeCopy)
 import           Money                  (Transaction, amount, date, description)
 import           Network.HTTP.Client    (Cookie, CookieJar)
@@ -61,6 +65,9 @@ $(deriveSafeCopy 0 'base ''CookieJar)
 $(deriveSafeCopy 0 'base ''Cookie)
 $(deriveSafeCopy 0 'base ''ResponseLog)
 $(deriveSafeCopy 0 'base ''RequestLog)
+
+hashTransactions :: [Transaction] -> String
+hashTransactions ts = toString $ toStrict $ encode ts
 
 -- returns the number of new transactions (those that are not already in the db)
 mergeTransactions_ :: [Transaction] -> Update Database Int
@@ -131,7 +138,7 @@ putCookieJar :: CookieJar -> DB ()
 putCookieJar cj = (`update'` PutCookieJar_ cj) =<< ask
 
 getLogs :: DB [([LogRecord], Maybe String)]
-getLogs = (`query'` GetLogs_) =<< ask
+getLogs = filter (isJust . snd) <$> ((`query'` GetLogs_) =<< ask)
 
 addLog :: ([LogRecord], Maybe String) -> DB ()
 addLog l = (`update'` AddLog_ l) =<< ask

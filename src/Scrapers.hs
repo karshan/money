@@ -3,7 +3,9 @@ module Scrapers
     ( getAllTransactions
     ) where
 
+import           Control.Monad          (when)
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Maybe             (isJust)
 import           DB                     (DB)
 import qualified DB                     (addLog, getCookieJar, getCredentials,
                                          putCookieJar)
@@ -21,6 +23,6 @@ getAllTransactions = do
         BankOfAmericaCreds c -> BankOfAmerica.getAllTransactions c
         _                    -> return []) creds
     let exception = either (Just . show) (const Nothing) result
-    DB.addLog (log_, exception)
+    when (isJust exception) $ DB.addLog (log_, exception)
     DB.putCookieJar cookieJar
     return result

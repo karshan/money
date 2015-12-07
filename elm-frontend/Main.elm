@@ -1,6 +1,6 @@
 import Html exposing (Html, div, input, text)
 import Html.Attributes exposing (autofocus, style, placeholder)
-import Html.Events exposing (on, targetValue)
+import Html.Events exposing (onKeyPress, on, targetValue)
 import Http
 import Effects exposing (Effects, Never)
 import Json.Decode exposing (Decoder, object1, object4, list, string, int, (:=))
@@ -23,7 +23,11 @@ port tasks : Signal (Task Never ())
 port tasks =
     app.tasks
 
-type Action = LoadTransactions (List Transaction) | Filter String | AddTag String
+type Action = LoadTransactions (List Transaction)
+            | Filter String
+            | AddTag String
+            | PerformAddTag
+            | NoOp
 
 init : (Model, Effects Action)
 init = (initModel, getTransactions)
@@ -32,7 +36,7 @@ inputStyle = [("width", "100%"), ("height", "2em"), ("border", "solid 1px gray")
 textStyle = [("text-align", "center"), ("padding", ".5em"), ("border", "solid 1px gray")]
 
 view : Address Action -> Model -> Html
-view address {transactions, currentFilter} =
+view address {transactions, currentFilter, addTag} =
     let filteredTransactions = filter (doFilter currentFilter) <| reverse <| sortBy .date transactions
     in div
         [
@@ -45,9 +49,10 @@ view address {transactions, currentFilter} =
             ]
             []
         , input
-            [ placeholder "tag"
+            [ placeholder "add tag"
             , style inputStyle
-            ,  on "input" targetValue (message address << AddTag)
+            , on "input" targetValue (message address << AddTag)
+            , onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)
             ]
             []
         , div [ style textStyle ]
@@ -63,6 +68,15 @@ update action m = case action of
     (LoadTransactions ts) -> ({ m | transactions = ts }, Effects.none)
     (Filter s) -> ({ m | currentFilter = s }, Effects.none)
     (AddTag s) -> ({ m | addTag = s }, Effects.none)
+    PerformAddTag -> (performAddTag m, Effects.none)
+    NoOp -> (m, Effects.none)
+
+performAddTag : Model -> Model
+performAddTag m =
+    { m | transactions =
+            List.map (\t -> if doFilter m.currentFilter t
+                            then { t | tags = t.tags `List.append` [m.addTag] }
+                            else t) m.transactions}
 
 getTransactions : Effects Action
 getTransactions =
