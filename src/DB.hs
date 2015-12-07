@@ -32,11 +32,12 @@ import           Control.Lens.TH        (makeLenses)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad.Reader   (MonadReader, ReaderT, ask, runReaderT)
 import           Control.Monad.State    (get, put)
+import           Crypto.Hash            (Digest, SHA256, hash)
 import           Data.Acid              (AcidState, Query, Update, makeAcidic,
                                          openLocalStateFrom, query, update)
 import           Data.Aeson             (encode)
+import           Data.ByteString        (ByteString)
 import           Data.ByteString.Lazy   (toStrict)
-import           Data.ByteString.UTF8   (toString)
 import           Data.Default.Class     (def)
 import           Data.Function          (on)
 import           Data.List              (deleteFirstsBy)
@@ -67,7 +68,10 @@ $(deriveSafeCopy 0 'base ''ResponseLog)
 $(deriveSafeCopy 0 'base ''RequestLog)
 
 hashTransactions :: [Transaction] -> String
-hashTransactions ts = toString $ toStrict $ encode ts
+hashTransactions ts = show $ sha256 $ toStrict $ encode ts
+    where
+        sha256 :: ByteString -> Digest SHA256
+        sha256 = hash
 
 -- returns the number of new transactions (those that are not already in the db)
 mergeTransactions_ :: [Transaction] -> Update Database Int
@@ -119,8 +123,8 @@ newtype DB a = DB { unDB :: ReaderT (AcidState Database) IO a }
 update' a = liftIO . update a
 query' a = liftIO . query a
 
-getTransactions :: DB [Transaction]
-getTransactions = (`query'` GetTransactions_) =<< ask
+getTransactions :: DB (String, [Transaction])
+getTransactions = (\ts -> (hashTransactions ts, ts)) <$> ((`query'` GetTransactions_) =<< ask)
 
 mergeTransactions :: [Transaction] -> DB Int
 mergeTransactions new = (`update'` MergeTransactions_ new) =<< ask

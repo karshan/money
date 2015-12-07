@@ -3,11 +3,11 @@ import Html.Attributes exposing (autofocus, style, placeholder)
 import Html.Events exposing (onKeyPress, on, targetValue)
 import Http
 import Effects exposing (Effects, Never)
-import Json.Decode exposing (Decoder, object1, object4, list, string, int, (:=))
+import Json.Decode exposing (Decoder, tuple2, object1, object4, list, string, int, (:=))
 import Maybe exposing (withDefault)
 import Model exposing (Model, Transaction, initModel)
 import Signal exposing (Address, message)
-import String exposing (contains, toLower, append)
+import String exposing (contains, left, toLower, append)
 import StartApp exposing (start)
 import Task exposing (Task)
 import View exposing (renderTransactions)
@@ -23,7 +23,7 @@ port tasks : Signal (Task Never ())
 port tasks =
     app.tasks
 
-type Action = LoadTransactions (List Transaction)
+type Action = LoadTransactions (String, List Transaction)
             | Filter String
             | AddTag String
             | PerformAddTag
@@ -36,7 +36,7 @@ inputStyle = [("width", "100%"), ("height", "2em"), ("border", "solid 1px gray")
 textStyle = [("text-align", "center"), ("padding", ".5em"), ("border", "solid 1px gray")]
 
 view : Address Action -> Model -> Html
-view address {transactions, currentFilter, addTag} =
+view address {transactions, transactionsRev, currentFilter, addTag} =
     let filteredTransactions = filter (doFilter currentFilter) <| reverse <| sortBy .date transactions
     in div
         [
@@ -56,7 +56,8 @@ view address {transactions, currentFilter, addTag} =
             ]
             []
         , div [ style textStyle ]
-            [ text (toString (length filteredTransactions) `append` " transactions") ]
+            [ text ((toString (length filteredTransactions) `append` " transactions")
+                    `append` " (rev " `append` (left 10 transactionsRev) `append` ")")]
         , renderTransactions filteredTransactions
         ]
 
@@ -65,7 +66,7 @@ doFilter s {description} = toLower s `contains` toLower description
 
 update : Action -> Model -> (Model, Effects Action)
 update action m = case action of
-    (LoadTransactions ts) -> ({ m | transactions = ts }, Effects.none)
+    (LoadTransactions (rev, ts)) -> ({ m | transactions = ts, transactionsRev = rev }, Effects.none)
     (Filter s) -> ({ m | currentFilter = s }, Effects.none)
     (AddTag s) -> ({ m | addTag = s }, Effects.none)
     PerformAddTag -> (performAddTag m, Effects.none)
@@ -82,7 +83,7 @@ getTransactions : Effects Action
 getTransactions =
     Http.get (list transaction) "https://karshan.me:8443/transactions"
       |> Task.toMaybe
-      |> Task.map (LoadTransactions << withDefault [])
+      |> Task.map (LoadTransactions << withDefault ("", []))
       |> Effects.task
 
 transaction : Decoder Transaction

@@ -2,6 +2,7 @@ module Model where
 
 type alias Model =
     { transactions : List Transaction
+    , transactionsRev : String
     , currentFilter : String
     , addTag : String
     }
@@ -13,4 +14,4 @@ type alias Transaction =
     }
 
 initModel : Model
-initModel = Model [] "" ""
+initModel = Model [] "" "" ""

@@ -50,4 +50,5 @@ executable money
                      , acid-state
                      , safecopy
                      , case-insensitive
+                     , cryptonite
   default-language:    Haskell2010

@@ -8,7 +8,7 @@ module Main where
 import           Control.Concurrent         (forkIO, threadDelay)
 import           Control.Monad              (forever, void)
 import           Control.Monad.IO.Class     (liftIO)
-import           Control.Monad.Trans.Either
+import           Control.Monad.Trans.Either (EitherT)
 import           Data.Function              ((&))
 import           Data.Time.Clock            (getCurrentTime)
 import           Data.Time.Format           (defaultTimeLocale, formatTime)
@@ -32,7 +32,7 @@ import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
 type API = MoneyAPI :<|> StaticAPI
 
 type MoneyAPI =
-         "transactions"  :> Get '[JSON] [Transaction]
+         "transactions"  :> Get '[JSON] (String, [Transaction])
     :<|> "credentials"   :> Get '[JSON] [(String, String)] -- [(service, username)]
     :<|> "addCredential" :> ReqBody '[JSON] Credential
                          :> Put '[JSON] ()
