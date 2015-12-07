@@ -1,5 +1,13 @@
 module Model where
 
+type Action = LoadTransactions (String, List Transaction)
+            | Filter String
+            | AddTag String
+            | PerformAddTag
+            | AddTagResponse Bool
+            | RemoveTag String
+            | NoOp
+
 type alias Model =
     { transactions : List Transaction
     , transactionsRev : String
