@@ -6,29 +6,32 @@ import Html.Events exposing (onClick)
 import Model exposing (Transaction, Action (..))
 import String exposing (isEmpty)
 import Signal exposing (Address, message)
+import List exposing (map, map2, length)
 
 trStyle = []
 tdStyle = [("border", "solid 1px gray"), ("padding", ".5em")]
 tableStyle = [("width", "100%"), ("border", "solid 1px gray"), ("border-collapse", "collapse")]
 
+zip = map2 (,)
+
+mkTable : List (List Html) -> Html
+mkTable xss  =
+    table [style tableStyle] <| map (\(i, xs) -> tr [style trStyle] <| map (\(j, x) ->
+        td [style tdStyle] [x])
+            <| zip [1..length xs] xs)
+            <| zip [1..length xss] xss
+
 renderTransactions : Address Action -> List Transaction -> Html
 renderTransactions address transactions =
-    let header = tr [style trStyle]
-                       [ td [style tdStyle] [text "date"]
-                       , td [style tdStyle] [text "description"]
-                       , td [style tdStyle] [text "amount"]
-                       , td [style tdStyle] [text "tags"]
-                       ]
-    in table [style tableStyle] <| header::List.map (renderTransaction address) transactions
+    mkTable <| [map text ["date", "description", "amount", "tags"]]
+             ++ map (renderTransaction address) transactions
 
-renderTransaction : Address Action -> Transaction -> Html
+renderTransaction : Address Action -> Transaction -> List Html
 renderTransaction address {description, date, amount, tags} =
-    tr [style trStyle]
-          [ td [style tdStyle] [text date]
-          , td [style tdStyle] [text description]
-          , td [style tdStyle] [text (toString <| (-1 * (toFloat amount))/100)]
-          , td [style tdStyle] <| List.map (renderTag address) tags
-          ]
+    let stringAmount = toString (-amount // 100) ++ "." ++ pad (toString ((abs amount) `rem` 100))
+        pad n = if String.length n == 1 then n ++ "0" else n
+        amountDiv = div [style [("text-align", "right")]] [text stringAmount]
+    in  [text date, text description, amountDiv] ++ [div [] <| map (renderTag address) tags]
 
 tagStyle = [ ("padding", ".3em")
            , ("background-color", "#1abc9c")

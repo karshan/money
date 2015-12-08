@@ -30,36 +30,35 @@ port tasks =
 init : (Model, Effects Action)
 init = (initModel, getTransactions)
 
-inputStyle = [("width", "100%"), ("height", "2em"), ("border", "solid 1px gray")]
+inputStyle = [("width", "100%"), ("height", "4em"), ("border", "solid 1px gray")]
 textStyle = [("text-align", "center"), ("padding", ".5em"), ("border", "solid 1px gray")]
 
 (++) : String -> String -> String
 (++) = append
 
+inputBox : String -> (String -> Signal.Message) -> List Html.Attribute -> Html
+inputBox s f attrs =
+    input ([ autofocus True
+          , placeholder s
+          , style inputStyle
+          , on "input" targetValue f
+          ] `List.append` attrs)
+          []
+
 view : Address Action -> Model -> Html
 view address m =
     let filteredTransactions = filter (doFilter m.currentFilter) <| reverse <| sortBy .date m.transactions
+        filterBox = inputBox "filter" (message address << Filter) []
+        addTagBox = inputBox "add tag" (message address << AddTag) [onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)]
     in div
         [
         ]
-        [ input
-            [ autofocus True
-            , placeholder "filter"
-            , style inputStyle
-            , on "input" targetValue (message address << Filter)
-            ]
-            []
-        , input
-            [ placeholder "add tag"
-            , style inputStyle
-            , on "input" targetValue (message address << AddTag)
-            , onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)
-            ]
-            []
+        [ filterBox
+        , addTagBox
         , div [ style textStyle ]
-            [ text ((toString (length filteredTransactions) ++ " transactions")
+              [ text ((toString (length filteredTransactions) ++ " transactions")
                     ++ " (rev " ++ (left 6 m.transactionsRev) ++ ")")]
-        , div [ style textStyle ] [ text ("error: " ++ (toString m.error)) ]
+        , div [ style textStyle ] [ text (if m.error then "error: " ++ (toString m.error) else "") ]
         , renderTransactions address filteredTransactions
         ]
 
