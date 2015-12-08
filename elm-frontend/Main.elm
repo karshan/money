@@ -1,5 +1,5 @@
-import Html exposing (Html, div, input, text)
-import Html.Attributes exposing (autofocus, style, placeholder)
+import Html exposing (Html, node, div, input, text)
+import Html.Attributes exposing (autofocus, style, placeholder, name, content)
 import Html.Events exposing (onKeyPress, on, targetValue)
 import Http
 import Effects exposing (Effects, Never)
@@ -53,7 +53,8 @@ view address m =
     in div
         [
         ]
-        [ filterBox
+        [ node "meta" [name "viewport", content "width=device-width, initial-scale=1.0, maximum-scale=1.0"] []
+        , filterBox
         , addTagBox
         , div [ style textStyle ]
               [ text ((toString (length filteredTransactions) ++ " transactions")
