@@ -2,6 +2,7 @@ module Model where
 
 type Action = LoadTransactions (String, List Transaction)
             | Filter String
+            | AmountFilter String
             | AddTag String
             | PerformAddTag
             | AddTagResponse Bool
@@ -11,7 +12,8 @@ type Action = LoadTransactions (String, List Transaction)
 type alias Model =
     { transactions : List Transaction
     , transactionsRev : String
-    , currentFilter : String
+    , filter' : String
+    , amountFilter : String
     , addTag : String
     , error : Bool
     }
@@ -23,4 +25,11 @@ type alias Transaction =
     }
 
 initModel : Model
-initModel = Model [] "" "" "" False
+initModel =
+    { transactions = []
+    , transactionsRev = ""
+    , filter' = ""
+    , amountFilter = ""
+    , addTag = ""
+    , error = False
+    }

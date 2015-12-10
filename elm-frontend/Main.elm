@@ -8,11 +8,12 @@ import Json.Encode exposing (encode)
 import Maybe exposing (withDefault)
 import Model exposing (Model, Transaction, Action (..), initModel)
 import Signal exposing (Address, message)
-import String exposing (contains, left, toLower, append)
+import String exposing (contains, left, toLower)
 import StartApp exposing (start)
 import Task exposing (Task)
-import View exposing (renderTransactions)
+import View exposing (renderTransactions, mkTable)
 import List exposing (filter, sortBy, reverse, length)
+import AmountFilter exposing (doAmountFilter, parseSuccess)
 
 baseUrl = "https://karshan.me:8443/"
 -- baseUrl = "http://localhost:3000/"
@@ -31,45 +32,51 @@ init : (Model, Effects Action)
 init = (initModel, getTransactions)
 
 inputStyle = [("width", "100%"), ("height", "4em"), ("border", "solid 1px gray")]
+errorInputStyle = inputStyle ++ [("color", "red")]
+
 textStyle = [("text-align", "center"), ("padding", ".5em"), ("border", "solid 1px gray")]
+errorTextStyle = textStyle ++ [("color", "red")]
 
-(++) : String -> String -> String
-(++) = append
-
-inputBox : String -> (String -> Signal.Message) -> List Html.Attribute -> Html
-inputBox s f attrs =
+inputBox : String -> (String -> Signal.Message) -> List Html.Attribute -> List (String, String) -> Html
+inputBox s f attrs st =
     input ([ autofocus True
           , placeholder s
-          , style inputStyle
+          , style st
           , on "input" targetValue f
-          ] `List.append` attrs)
+          ] ++ attrs)
           []
 
 view : Address Action -> Model -> Html
 view address m =
-    let filteredTransactions = filter (doFilter m.currentFilter) <| reverse <| sortBy .date m.transactions
-        filterBox = inputBox "filter" (message address << Filter) []
-        addTagBox = inputBox "add tag" (message address << AddTag) [onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)]
+    let filteredTransactions = filter (doFilter m) <| reverse <| sortBy .date m.transactions
+        filterBox = inputBox "filter" (message address << Filter) [] inputStyle
+        amountFilter = inputBox "amount filter" (message address << AmountFilter) [] <| if parseSuccess m.amountFilter then inputStyle else errorInputStyle
+        addTagBox = inputBox "add tag" (message address << AddTag) [onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)] inputStyle
     in div
-        [
-        ]
+        []
         [ node "meta" [name "viewport", content "width=device-width, initial-scale=1.0, maximum-scale=1.0"] []
-        , filterBox
+        , mkTable [[filterBox, amountFilter]]
         , addTagBox
         , div [ style textStyle ]
               [ text ((toString (length filteredTransactions) ++ " transactions")
                     ++ " (rev " ++ (left 6 m.transactionsRev) ++ ")")]
-        , div [ style textStyle ] [ text (if m.error then "error: " ++ (toString m.error) else "") ]
+        , div [ style errorTextStyle ] [ text (if m.error then "error: " ++ (toString m.error) else "") ]
         , renderTransactions address filteredTransactions
         ]
 
-doFilter : String -> Transaction -> Bool
-doFilter s {description} = toLower s `contains` toLower description
+ciContains : String -> String -> Bool
+ciContains a b = toLower a `contains` toLower b
+
+doFilter : Model -> Transaction -> Bool
+doFilter m {description, amount} =
+    m.filter' `ciContains` description &&
+    doAmountFilter m.amountFilter (-1 * (amount // 100))
 
 update : Action -> Model -> (Model, Effects Action)
 update action m = case action of
     (LoadTransactions (rev, ts)) -> ({ m | transactions = ts, transactionsRev = rev }, Effects.none)
-    (Filter s) -> ({ m | currentFilter = s }, Effects.none)
+    (Filter s) -> ({ m | filter' = s }, Effects.none)
+    (AmountFilter s) -> ({ m | amountFilter = s }, Effects.none)
     (AddTag s) -> ({ m | addTag = s }, Effects.none)
     PerformAddTag -> (m, performAddTag m)
     AddTagResponse b -> if b then (m, getTransactions) else ({ m | error = True }, Effects.none)
@@ -82,7 +89,7 @@ performAddTag m =
         { verb = "PUT"
         , headers = [("Content-Type", "application/json")]
         , url = baseUrl ++ "addTags"
-        , body = Http.string <| encode 0 <| Json.Encode.list <| List.map Json.Encode.string [m.transactionsRev, m.currentFilter, m.addTag]
+        , body = Http.string <| encode 0 <| Json.Encode.list <| List.map Json.Encode.string [m.transactionsRev, m.filter', m.addTag]
         } |> Http.fromJson bool
           |> Task.toMaybe
           |> Task.map (AddTagResponse << withDefault False)
@@ -94,7 +101,7 @@ performRemoveTag m t =
         { verb = "PUT"
         , headers = [("Content-Type", "application/json")]
         , url = baseUrl ++ "removeTags"
-        , body = Http.string <| encode 0 <| Json.Encode.list <| List.map Json.Encode.string [m.transactionsRev, m.currentFilter, t]
+        , body = Http.string <| encode 0 <| Json.Encode.list <| List.map Json.Encode.string [m.transactionsRev, m.filter', t]
         } |> Http.fromJson bool
           |> Task.toMaybe
           |> Task.map (AddTagResponse << withDefault False)
