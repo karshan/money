@@ -1,14 +1,10 @@
 module AmountFilter where
 
-import Combine       exposing (Parser, Result (..), rec, chainl, parens, between, end, parse, map, choice, string, regex, andThen)
-import Combine.Char  exposing (char)
-import Combine.Infix exposing ((<$>), (<$), (<*>), (<*), (*>), (<|>))
-import Combine.Num   exposing (int)
-
-type Expr =
-      Op Op Int
-    | And Expr Expr
-    | Or Expr Expr
+import Combine       exposing (Parser, Result (..), many, sepBy, between, end, parse, choice, string, regex, andThen, maybe)
+import Combine.Infix exposing ((<$>), (<$), (<*), (*>))
+import Combine.Num   exposing (int, digit)
+import List          exposing (foldr, map2)
+import Maybe         exposing (withDefault)
 
 type Op = LT | GT | EQ
 
@@ -26,35 +22,28 @@ parseSuccess s =
       (Done _, _) -> True
       (Fail _, _) -> False
 
-eval : Expr -> Int -> Bool
+eval : List (Op, Int) -> Int -> Bool
 eval e n =
     case e of
-      (Op LT x) -> n < x
-      (Op GT x) -> n > x
-      (Op EQ x) -> n == x
-      (And e1 e2) -> eval e1 n && eval e2 n
-      (Or e1 e2) -> eval e1 n || eval e2 n
+      [] -> True
+      ((LT, x)::xs) -> n < x && eval xs n
+      ((GT, x)::xs) -> n > x && eval xs n
+      ((EQ, x)::xs) -> n == x && eval xs n
 
 ws : Parser String
 ws = regex "[ \t\r\n]*"
 
-and : Parser (Expr -> Expr -> Expr)
-and = And <$ string "&"
+expr : Parser (List (Op, Int))
+expr = between ws ws (sepBy ws basicExpr)
 
-or : Parser (Expr -> Expr -> Expr)
-or = Or <$ string "|"
+basicExpr : Parser (Op, Int)
+basicExpr = op >>= (\op' -> ws *> ((,) op' <$> currency))
 
-expr : Parser Expr
-expr = rec <| \() -> term `chainl` or
+currency : Parser Int
+currency = int >>= (\n -> ((+) (n * 100)) <$> (withDefault 0 <$> maybe decimal))
 
-term : Parser Expr
-term = rec <| \() -> factor `chainl` and
-
-factor : Parser Expr
-factor = rec <| \() -> between ws ws (parens expr <|> basicExpr)
-
-basicExpr : Parser Expr
-basicExpr = op >>= (\op' -> ws *> (Op op' <$> int))
+decimal : Parser Int
+decimal = (foldr (+) 0 << map2 (*) [10, 1]) <$> (string "." *> (many digit))
 
 op : Parser Op
 op = choice [ LT <$ string "<", GT <$ string ">", EQ <$ string "=" ]

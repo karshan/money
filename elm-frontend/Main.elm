@@ -70,7 +70,7 @@ ciContains a b = toLower a `contains` toLower b
 doFilter : Model -> Transaction -> Bool
 doFilter m {description, amount} =
     m.filter' `ciContains` description &&
-    doAmountFilter m.amountFilter (-1 * (amount // 100))
+    doAmountFilter m.amountFilter (-1 * amount)
 
 update : Action -> Model -> (Model, Effects Action)
 update action m = case action of
