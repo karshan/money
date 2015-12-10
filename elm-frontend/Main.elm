@@ -15,7 +15,7 @@ import View exposing (renderTransactions, mkTable)
 import List exposing (filter, foldr, map, sortBy, reverse, member, length)
 import AmountFilter exposing (doAmountFilter, parseSuccess)
 
-baseUrl = "https://karshan.me:8443/"
+baseUrl = "https://karshan.me/"
 -- baseUrl = "http://localhost:3000/"
 
 app =
