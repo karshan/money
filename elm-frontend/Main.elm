@@ -12,7 +12,7 @@ import String exposing (contains, left, toLower)
 import StartApp exposing (start)
 import Task exposing (Task)
 import View exposing (renderTransactions, mkTable)
-import List exposing (filter, sortBy, reverse, length)
+import List exposing (filter, foldr, map, sortBy, reverse, member, length)
 import AmountFilter exposing (doAmountFilter, parseSuccess)
 
 baseUrl = "https://karshan.me:8443/"
@@ -51,11 +51,12 @@ view address m =
     let filteredTransactions = filter (doFilter m) <| reverse <| sortBy .date m.transactions
         filterBox = inputBox "filter" (message address << Filter) [] inputStyle
         amountFilter = inputBox "amount filter" (message address << AmountFilter) [] <| if parseSuccess m.amountFilter then inputStyle else errorInputStyle
+        tagFilter = inputBox "tag filter" (message address << TagFilter) [] inputStyle
         addTagBox = inputBox "add tag" (message address << AddTag) [onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)] inputStyle
     in div
         []
         [ node "meta" [name "viewport", content "width=device-width, initial-scale=1.0, maximum-scale=1.0"] []
-        , mkTable [[filterBox, amountFilter]]
+        , mkTable [[filterBox, amountFilter, tagFilter]]
         , addTagBox
         , div [ style textStyle ]
               [ text ((toString (length filteredTransactions) ++ " transactions")
@@ -68,15 +69,17 @@ ciContains : String -> String -> Bool
 ciContains a b = toLower a `contains` toLower b
 
 doFilter : Model -> Transaction -> Bool
-doFilter m {description, amount} =
+doFilter m {description, amount, tags} =
     m.filter' `ciContains` description &&
-    doAmountFilter m.amountFilter (-1 * amount)
+    doAmountFilter m.amountFilter (-1 * amount) &&
+    if m.tagFilter == "" then True else (foldr (||) False (map (\x -> m.tagFilter `ciContains` x) tags))
 
 update : Action -> Model -> (Model, Effects Action)
 update action m = case action of
     (LoadTransactions (rev, ts)) -> ({ m | transactions = ts, transactionsRev = rev }, Effects.none)
     (Filter s) -> ({ m | filter' = s }, Effects.none)
     (AmountFilter s) -> ({ m | amountFilter = s }, Effects.none)
+    (TagFilter s) -> ({ m | tagFilter = s }, Effects.none)
     (AddTag s) -> ({ m | addTag = s }, Effects.none)
     PerformAddTag -> (m, performAddTag m)
     AddTagResponse b -> if b then (m, getTransactions) else ({ m | error = True }, Effects.none)

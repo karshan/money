@@ -3,6 +3,7 @@ module Model where
 type Action = LoadTransactions (String, List Transaction)
             | Filter String
             | AmountFilter String
+            | TagFilter String
             | AddTag String
             | PerformAddTag
             | AddTagResponse Bool
@@ -14,6 +15,7 @@ type alias Model =
     , transactionsRev : String
     , filter' : String
     , amountFilter : String
+    , tagFilter : String
     , addTag : String
     , error : Bool
     }
@@ -30,6 +32,7 @@ initModel =
     , transactionsRev = ""
     , filter' = ""
     , amountFilter = ""
+    , tagFilter = ""
     , addTag = ""
     , error = False
     }
