@@ -18,8 +18,9 @@ import qualified DB                         (addCredential, addTags,
                                              getTransactions, mergeTransactions,
                                              removeTags)
 import           Money                      (Transaction (..))
-import           Network.HTTP.Types.Status  (ok200)
-import           Network.Wai                (Application, responseFile)
+import           Network.HTTP.Types.Status  (notFound404, ok200)
+import           Network.Wai                (Application, pathInfo,
+                                             responseFile, responseLBS)
 import           Network.Wai.Handler.Warp   (defaultSettings, runSettings,
                                              setHost, setPort)
 import qualified Scrapers                   (getAllTransactions)
@@ -43,7 +44,7 @@ type MoneyAPI =
                          :> Put '[JSON] ()
     :<|> "logs"          :> Get '[JSON] [([LogRecord], Maybe String)]
 
-type StaticAPI = "money" :> Raw
+type StaticAPI = Raw
 
 api :: Proxy API
 api = Proxy
@@ -58,7 +59,7 @@ server ctx = enter (Nat nat) dbServer :<|> staticServer
         nat a = liftIO $ runDB ctx a
 
 staticServer :: Server StaticAPI
-staticServer _ respond = respond $ responseFile ok200 [("Content-Type", "text/html")] "elm-frontend/index.html" Nothing
+staticServer request respond = if null (pathInfo request) then respond $ responseFile ok200 [("Content-Type", "text/html")] "elm-frontend/index.html" Nothing else respond $ responseLBS notFound404 [] "not found"
 
 dbServer :: ServerT MoneyAPI DB
 dbServer = DB.getTransactions
