@@ -153,9 +153,17 @@ $(makeAcidic ''Database [ 'mergeTransactions_, 'getTransactions_
 newtype DB a = DB { unDB :: ReaderT (AcidState Database) IO a }
     deriving (Functor, Applicative, Monad, MonadIO, MonadReader (AcidState Database))
 
+runDB :: DBContext -> DB a -> IO a
+runDB db (DB a) = runReaderT a db
+
+openDB :: FilePath -> IO DBContext
+openDB fp = openLocalStateFrom fp (Database [] [] def [])
+
+
 update' a = liftIO . update a
 query' a = liftIO . query a
 
+--TODO generate with TemplateHaskell
 getTransactions :: DB (String, [Transaction])
 getTransactions = (\ts -> (hashTransactions ts, ts)) <$> ((`query'` GetTransactions_) =<< ask)
 
@@ -185,9 +193,3 @@ addTags (rev, filter', tag) = (`update'` AddTags_ rev filter' tag) =<< ask
 
 removeTags :: (String, String, String) -> DB Bool
 removeTags (rev, filter', tag) = (`update'` RemoveTags_ rev filter' tag) =<< ask
-
-runDB :: DBContext -> DB a -> IO a
-runDB db (DB a) = runReaderT a db
-
-openDB :: FilePath -> IO DBContext
-openDB fp = openLocalStateFrom fp (Database [] [] def [])
