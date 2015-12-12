@@ -47,7 +47,7 @@ import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
                                              ReqBody, ServantErr (..), Server,
                                              ServerT, enter, serve)
 
-serverBaseUrl = "https://karshan.me/"
+serverBaseUrl = "https://karshan.me"
 
 type API = MoneyAPI :<|> StaticAPI
 
