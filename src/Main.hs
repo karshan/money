@@ -16,7 +16,7 @@ import           Data.Bool                  (bool)
 import           Data.ByteString            (ByteString)
 import           Data.ByteString.Lazy       (toStrict)
 import           Data.ByteString.UTF8       (toString)
-import           Data.Char                  (isPrint, isSpace)
+import           Data.Char                  (isDigit, isPrint, isSpace)
 import           Data.Function              ((&))
 import           Data.List.Split            (splitOn)
 import           Data.Monoid                ((<>))
@@ -133,7 +133,7 @@ main :: IO ()
 main = do
     db <- openDB "transactions.aciddb"
     (googClientId, googClientSecret) <- (\[a,b] -> (a,b)) . map (fromString . filter isPrint) . lines <$> readFile "goog-creds"
-    googIds <- lines <$> readFile "goog-ids"
+    googIds <- map (filter isDigit) . lines <$> readFile "goog-ids"
     void $ forkIO $ runDB db updateThread
     putStrLn "listening on port 3000"
     runSettings (defaultSettings & setPort 3000 & setHost "127.0.0.1")
