@@ -31,14 +31,15 @@ import qualified DB                         (addCredential, addTags,
                                              removeTags)
 import           Money                      (Transaction (..))
 import           Network.HTTP.Types.Header  (hCookie)
-import           Network.HTTP.Types.Status  (found302, notFound404, ok200)
+import           Network.HTTP.Types.Status  (badRequest400, found302,
+                                             notFound404, ok200)
 import           Network.Wai                (Application, ResponseReceived,
                                              pathInfo, queryString,
                                              requestHeaders, responseFile,
                                              responseLBS)
 import           Network.Wai.Handler.Warp   (defaultSettings, runSettings,
                                              setHost, setPort)
-import           Network.Wreq               (defaults, get, post, responseBody)
+import           Network.Wreq               (get, post, responseBody)
 import qualified Scrapers                   (getAllTransactions)
 import           Scrapers.Browser           (LogRecord)
 import           Scrapers.Common            (Credential, showCredential)
@@ -47,6 +48,7 @@ import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
                                              ReqBody, ServantErr (..), Server,
                                              ServerT, enter, serve)
 
+serverBaseUrl :: ByteString
 serverBaseUrl = "https://karshan.me"
 
 type API = MoneyAPI :<|> StaticAPI
@@ -93,20 +95,19 @@ trim = takeWhile (not . isSpace) . dropWhile isSpace
 parseCookies :: ByteString -> [(String, String)]
 parseCookies = map (\[a,b] -> (a,b)) . filter ((== 2) . length) . map (splitOn "=" . trim) . splitOn ";" . toString
 
-googClientId = "235611429010-mnet4dc9cpkcafufqogdtrv86t54u9hi.apps.googleusercontent.com"
-googClientSecret = "YxUKnQO2Nb4qEB0c3VHlbzXR"
-
 --TODO exception handling
-authMiddleware :: Application -> Application
-authMiddleware mainApp req respond =
+authMiddleware :: (ByteString, ByteString) -> [String] -> Application -> Application
+authMiddleware (googClientId, googClientSecret) googIds mainApp req respond =
     if maybe False validateCookie (lookup cookieName . parseCookies =<< lookup hCookie (requestHeaders req)) then
         mainApp req respond
     else
         join (lookup "code" (queryString req)) & maybe authRedirect
-            (bool authRedirect setCookieRedirect <=< validateGoogleCode)
+            (bool invalidCode setCookieRedirect <=< validateGoogleCode)
     where
       authRedirect :: IO ResponseReceived
       authRedirect = respond $ responseLBS found302 [("Location", authRedirectUrl)] ""
+      invalidCode :: IO ResponseReceived
+      invalidCode = respond $ responseLBS badRequest400 [] "invalid code"
       authRedirectUrl = "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=" <> googClientId <> "&redirect_uri=" <> serverBaseUrl <> "&scope=profile"
       setCookieRedirect :: IO ResponseReceived
       setCookieRedirect = generateCookie >>= (\cookie -> respond $ responseLBS found302 [("Location", authRedirectUrl), ("Set-Cookie", fromString cookieName <> "=" <> cookie)] "")
@@ -126,16 +127,18 @@ authMiddleware mainApp req respond =
           mToken & maybe (return False) (\access_token -> do
               body <- (^. responseBody) <$> get ("https://www.googleapis.com/plus/v1/people/me?access_token=" <> T.unpack access_token)
               print body
-              return $ (toString (toStrict body) ^? key "id") == Just "109960628294760037742")
+              return $ maybe False ((`elem` googIds) . T.unpack) $ toString (toStrict body) ^? key "id" . _String)
       cookieName = "money-session"
 
 main :: IO ()
 main = do
     db <- openDB "transactions.aciddb"
+    (googClientId, googClientSecret) <- (\[a,b] -> (a,b)) . map fromString . lines <$> readFile "goog-creds"
+    googIds <- lines <$> readFile "goog-ids"
     void $ forkIO $ runDB db updateThread
     putStrLn "listening on port 3000"
     runSettings (defaultSettings & setPort 3000 & setHost "127.0.0.1")
-                (authMiddleware $ app db)
+                (authMiddleware (googClientId, googClientSecret) googIds $ app db)
 
 updateThread :: DB ()
 updateThread = forever $ do
