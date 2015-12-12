@@ -108,7 +108,7 @@ tildeToEquals = BS.map (\c -> if c == fromIntegral (ord '~') then fromIntegral $
 
 cookieEncode, cookieDecode :: ByteString -> ByteString
 cookieEncode = equalsToTilde . URL.encode
-cookieDecode = either (const "") tildeToEquals . URL.decode
+cookieDecode = either (const "") id . URL.decode . tildeToEquals
 
 --TODO exception handling
 authMiddleware :: ByteString -> (ByteString, ByteString) -> [String] -> Application -> Application
@@ -134,7 +134,7 @@ authMiddleware passphrase (googClientId, googClientSecret) googIds mainApp req r
       validateCookie :: String -> IO Bool
       validateCookie c = do
           now <- getCurrentTime
-          maybe (return False) (\created -> return $ diffUTCTime now created < oneWeek) (parseTimeM False defaultTimeLocale "%s" . toString =<< eToM (cbcDecrypt' passphrase $ cookieDecode $ fromString c))
+          maybe (return False) (\created -> return $ diffUTCTime now created < oneWeek) (parseTimeM True defaultTimeLocale "%s" . toString =<< eToM (cbcDecrypt' passphrase $ cookieDecode $ fromString c))
           where
               oneWeek = 7 * 24 * 60 * 60
               eToM = either (const Nothing) Just
