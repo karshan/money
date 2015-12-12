@@ -7,16 +7,18 @@
 module Main where
 
 import           Control.Concurrent         (forkIO, threadDelay)
+import           Control.Exception          (SomeException, try)
 import           Control.Lens               ((^.), (^?))
 import           Control.Monad              (forever, join, void, (<=<))
 import           Control.Monad.IO.Class     (liftIO)
 import           Control.Monad.Trans.Either (EitherT)
 import           Crypto.Cipher.AES.Util     (cbcDecrypt', cbcEncrypt')
+import           Crypto.Random              (getRandomBytes)
 import           Data.Aeson.Lens            (key, _String)
 import           Data.Bool                  (bool)
 import           Data.ByteString            (ByteString)
+import qualified Data.ByteString.Base64.URL as URL
 import           Data.ByteString.Lazy       (toStrict)
-import qualified Data.ByteString.Lazy       as LBS (readFile, take)
 import           Data.ByteString.UTF8       (toString)
 import           Data.Char                  (isDigit, isPrint, isSpace)
 import           Data.Function              ((&))
@@ -96,18 +98,22 @@ trim :: String -> String
 trim = takeWhile (not . isSpace) . dropWhile isSpace
 
 parseCookies :: ByteString -> [(String, String)]
-parseCookies = map (\[a,b] -> (a,b)) . filter ((== 2) . length) . map (splitOn "=" . trim) . splitOn ";" . toString
+parseCookies = map (\(a:b:_) -> (a,b)) . filter ((>= 2) . length) . map (splitOn "=" . trim) . splitOn ";" . toString
+
+cookieEncode, cookieDecode :: ByteString -> ByteString
+cookieEncode = URL.encode
+cookieDecode = either (const "") id . URL.decode
 
 --TODO exception handling
 authMiddleware :: ByteString -> (ByteString, ByteString) -> [String] -> Application -> Application
-authMiddleware passphrase (googClientId, googClientSecret) googIds mainApp req respond = do
+authMiddleware passphrase (googClientId, googClientSecret) googIds mainApp req respond = either (\(s :: SomeException) -> error $ "auth exception " <> show s) id <$> try (do
     let mCookie = lookup cookieName . parseCookies =<< lookup hCookie (requestHeaders req)
     cond <- maybe (return False) validateCookie mCookie
     if cond then
          mainApp req respond
     else
         join (lookup "code" (queryString req)) & maybe authRedirect
-             (bool invalidCode setCookieRedirect <=< validateGoogleCode)
+             (bool invalidCode setCookieRedirect <=< validateGoogleCode))
     where
       authRedirect :: IO ResponseReceived
       authRedirect = respond $ responseLBS found302 [("Location", authRedirectUrl)] ""
@@ -117,12 +123,12 @@ authMiddleware passphrase (googClientId, googClientSecret) googIds mainApp req r
       setCookieRedirect :: IO ResponseReceived
       setCookieRedirect = generateCookie >>= (\cookie -> respond $ responseLBS found302 [("Location", authRedirectUrl), ("Set-Cookie", fromString cookieName <> "=" <> cookie)] "")
       generateCookie :: IO ByteString
-      generateCookie = either (error "fatal: cbcEncrypt' failed with: ") id <$>
+      generateCookie = either (error "fatal: cbcEncrypt' failed with: ") cookieEncode <$>
           (cbcEncrypt' passphrase =<< fromString . formatTime defaultTimeLocale "%s" <$> getCurrentTime)
       validateCookie :: String -> IO Bool
       validateCookie c = do
           now <- getCurrentTime
-          maybe (return False) (\created -> return $ diffUTCTime now created < oneWeek) (parseTimeM False defaultTimeLocale "%s" . toString =<< eToM (cbcDecrypt' passphrase $ fromString c))
+          maybe (return False) (\created -> return $ diffUTCTime now created < oneWeek) (parseTimeM False defaultTimeLocale "%s" . toString =<< eToM (cbcDecrypt' passphrase $ cookieDecode $ fromString c))
           where
               oneWeek = 7 * 24 * 60 * 60
               eToM = either (const Nothing) Just
@@ -146,7 +152,7 @@ main = do
     (googClientId, googClientSecret) <- (\[a,b] -> (a,b)) . map (fromString . filter isPrint) . lines <$> readFile "goog-creds"
     googIds <- map (filter isDigit) . lines <$> readFile "goog-ids"
     void $ forkIO $ runDB db updateThread
-    passphrase <- toStrict . LBS.take 32 <$> LBS.readFile "/dev/urandom"
+    passphrase <- getRandomBytes 32
     putStrLn "listening on port 3000"
     runSettings (defaultSettings & setPort 3000 & setHost "127.0.0.1")
                 (authMiddleware passphrase (googClientId, googClientSecret) googIds $ app db)

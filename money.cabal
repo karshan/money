@@ -26,6 +26,7 @@ executable money
                      , bytestring
                      , warp
                      , wreq
+                     , base64-bytestring
                      , split
                      , memory
                      , transformers
