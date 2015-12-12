@@ -27,6 +27,7 @@ executable money
                      , warp
                      , wreq
                      , split
+                     , memory
                      , transformers
                      , data-default-class
                      , containers
