@@ -126,7 +126,6 @@ authMiddleware (googClientId, googClientSecret) googIds mainApp req respond =
                     ]
           mToken & maybe (return False) (\access_token -> do
               body <- (^. responseBody) <$> get ("https://www.googleapis.com/plus/v1/people/me?access_token=" <> T.unpack access_token)
-              print body
               return $ maybe False ((`elem` googIds) . T.unpack) $ toString (toStrict body) ^? key "id" . _String)
       cookieName = "money-session"
 
