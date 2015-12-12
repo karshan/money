@@ -17,10 +17,12 @@ import           Crypto.Random              (getRandomBytes)
 import           Data.Aeson.Lens            (key, _String)
 import           Data.Bool                  (bool)
 import           Data.ByteString            (ByteString)
+import qualified Data.ByteString            as BS (map)
 import qualified Data.ByteString.Base64.URL as URL
 import           Data.ByteString.Lazy       (toStrict)
 import           Data.ByteString.UTF8       (toString)
-import           Data.Char                  (isDigit, isPrint, isSpace)
+import           Data.Char                  (isDigit, isPrint, isSpace,
+                                             ord)
 import           Data.Function              ((&))
 import           Data.List.Split            (splitOn)
 import           Data.Monoid                ((<>))
@@ -100,9 +102,13 @@ trim = takeWhile (not . isSpace) . dropWhile isSpace
 parseCookies :: ByteString -> [(String, String)]
 parseCookies = map (\(a:b:_) -> (a,b)) . filter ((>= 2) . length) . map (splitOn "=" . trim) . splitOn ";" . toString
 
+equalsToTilde, tildeToEquals :: ByteString -> ByteString
+equalsToTilde = BS.map (\c -> if c == fromIntegral (ord '=') then fromIntegral $ ord '~' else c)
+tildeToEquals = BS.map (\c -> if c == fromIntegral (ord '~') then fromIntegral $ ord '=' else c)
+
 cookieEncode, cookieDecode :: ByteString -> ByteString
-cookieEncode = URL.encode
-cookieDecode = either (const "") id . URL.decode
+cookieEncode = equalsToTilde . URL.encode
+cookieDecode = either (const "") tildeToEquals . URL.decode
 
 --TODO exception handling
 authMiddleware :: ByteString -> (ByteString, ByteString) -> [String] -> Application -> Application
