@@ -1,12 +1,8 @@
 module Model where
 
-import String exposing (toLower, contains)
-import List exposing (foldr)
-import List exposing (map)
-import AmountFilter exposing (doAmountFilter, parseSuccess)
-
-ciContains : String -> String -> Bool
-ciContains a b = toLower a `contains` toLower b
+import List exposing (foldr, map)
+import AmountFilter exposing (doAmountFilter)
+import Util exposing (ciContains)
 
 type Action = LoadTransactions (String, List Transaction)
             | Filter String

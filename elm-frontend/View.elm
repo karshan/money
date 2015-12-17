@@ -6,11 +6,9 @@ import Html.Events exposing (onKeyPress, onClick, on, targetValue)
 import Model exposing (Model, Transaction, Action (..), doFilter)
 import String exposing (isEmpty, left)
 import Signal exposing (Address, message)
-import List exposing (map, map2, length, filter, reverse, sortBy)
+import List exposing (map, length, filter, reverse, sortBy)
 import AmountFilter exposing (parseSuccess)
-
-zip : List a -> List b -> List (a, b)
-zip = map2 (,)
+import Util exposing (zip)
 
 inputStyle = [("width", "100%"), ("height", "4em"), ("border", "solid 1px gray")]
 errorInputStyle = inputStyle ++ [("color", "red")]
