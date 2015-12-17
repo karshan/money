@@ -4,7 +4,7 @@ import Html.Events exposing (onKeyPress, on, targetValue)
 import Http
 import Effects exposing (Effects, Never)
 import Json.Decode exposing (Decoder, tuple2, object1, object4, list, string, int, bool, (:=))
-import Json.Encode exposing (encode)
+import Json.Encode exposing (encode, Value)
 import Maybe exposing (withDefault)
 import Model exposing (Model, Transaction, Action (..), initModel)
 import Signal exposing (Address, message)
@@ -47,7 +47,7 @@ inputBox s f attrs st =
           ] ++ attrs)
           []
 
-transactionToValue : Transaction -> Json.Encode.Value
+transactionToValue : Transaction -> Value
 transactionToValue t = let st = Json.Encode.string in
     Json.Encode.object [("amount", Json.Encode.int t.amount), ("date", st t.date), ("description", st t.description), ("tags", Json.Encode.list <| map Json.Encode.string t.tags) ]
 
@@ -96,29 +96,27 @@ update action m = case action of
     RemoveTag s -> (m, performRemoveTag m s)
     NoOp -> (m, Effects.none)
 
-performAddTag : Model -> Effects Action
-performAddTag m =
+doPut : String -> String -> (Bool -> Action) -> Effects Action
+doPut endpoint data cb =
     Http.send Http.defaultSettings
         { verb = "PUT"
         , headers = [("Content-Type", "application/json")]
-        , url = baseUrl ++ "addTags"
-        , body = Http.string <| encode 0 <| Json.Encode.list <| List.map Json.Encode.string [m.transactionsRev, m.filter', m.addTag]
+        , url = baseUrl ++ endpoint
+        , body = Http.string <| data
         } |> Http.fromJson bool
           |> Task.toMaybe
-          |> Task.map (AddTagResponse << withDefault False)
+          |> Task.map (cb << withDefault False)
           |> Effects.task
 
+performAddTag : Model -> Effects Action
+performAddTag m =
+    let data = encode 0 <| Json.Encode.list <| map Json.Encode.string [m.transactionsRev, m.filter', m.addTag]
+    in doPut "addTags" data AddTagResponse
+
 performRemoveTag : Model -> String -> Effects Action
-performRemoveTag m t =
-    Http.send Http.defaultSettings
-        { verb = "PUT"
-        , headers = [("Content-Type", "application/json")]
-        , url = baseUrl ++ "removeTags"
-        , body = Http.string <| encode 0 <| Json.Encode.list <| List.map Json.Encode.string [m.transactionsRev, m.filter', t]
-        } |> Http.fromJson bool
-          |> Task.toMaybe
-          |> Task.map (AddTagResponse << withDefault False)
-          |> Effects.task
+performRemoveTag m tag =
+    let data = encode 0 <| Json.Encode.list <| map Json.Encode.string [m.transactionsRev, m.filter', tag]
+    in doPut "removeTags" data AddTagResponse
 
 getTransactions : Effects Action
 getTransactions =
