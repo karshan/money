@@ -14,6 +14,7 @@ import Task exposing (Task)
 import View exposing (renderTransactions, mkTable)
 import List exposing (filter, foldr, map, sortBy, reverse, member, length)
 import AmountFilter exposing (doAmountFilter, parseSuccess)
+import Sha
 
 baseUrl = "https://karshan.me/"
 -- baseUrl = "http://localhost:3000/"
@@ -45,6 +46,15 @@ inputBox s f attrs st =
           , on "input" targetValue f
           ] ++ attrs)
           []
+
+transactionToValue : Transaction -> Json.Encode.Value
+transactionToValue t = let st = Json.Encode.string in
+    Json.Encode.object [("amount", Json.Encode.int t.amount), ("date", st t.date), ("description", st t.description), ("tags", Json.Encode.list <| map Json.Encode.string t.tags) ]
+
+sha256 s = Sha.digest "hex" <| Sha.update s "utf8" <| Sha.createHash "sha256"
+
+hashTransactions : List Transaction -> String
+hashTransactions = sha256 << Json.Encode.encode 0 << Json.Encode.list << map transactionToValue
 
 view : Address Action -> Model -> Html
 view address m =
