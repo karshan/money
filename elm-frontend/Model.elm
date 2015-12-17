@@ -1,5 +1,13 @@
 module Model where
 
+import String exposing (toLower, contains)
+import List exposing (foldr)
+import List exposing (map)
+import AmountFilter exposing (doAmountFilter, parseSuccess)
+
+ciContains : String -> String -> Bool
+ciContains a b = toLower a `contains` toLower b
+
 type Action = LoadTransactions (String, List Transaction)
             | Filter String
             | AmountFilter String
@@ -36,3 +44,9 @@ initModel =
     , addTag = ""
     , error = False
     }
+
+doFilter : Model -> Transaction -> Bool
+doFilter m {description, amount, tags} =
+    m.filter' `ciContains` description &&
+    doAmountFilter m.amountFilter (-1 * amount) &&
+    if m.tagFilter == "" then True else (foldr (||) False (map (\x -> m.tagFilter `ciContains` x) tags))

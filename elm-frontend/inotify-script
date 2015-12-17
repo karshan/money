@@ -1,0 +1,6 @@
+#!/usr/bin/fish
+while true
+  inotifywait -e modify (find . -name "*.elm")
+  elm-make Main.elm
+  sleep 1
+end
