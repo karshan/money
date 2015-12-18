@@ -3,12 +3,15 @@ module View where
 import Html exposing (Html, node, input, div, table, tr, td, text, span)
 import Html.Attributes exposing (autofocus, style, placeholder, name, content)
 import Html.Events exposing (onKeyPress, onClick, on, targetValue)
-import Model exposing (Model, Transaction, Action (..), doFilter)
+import Model exposing (Model, Transaction, Action (..))
+import Filter exposing (doFilter)
 import String exposing (isEmpty, left)
 import Signal exposing (Address, message)
 import List exposing (map, length, filter, reverse, sortBy)
-import AmountFilter exposing (parseSuccess)
+import Filter exposing (parseSuccess, expr)
 import Util exposing (zip)
+import Combine exposing (parse, end)
+import Combine.Infix exposing ((<*))
 
 inputStyle = [("width", "100%"), ("height", "4em"), ("border", "solid 1px gray")]
 errorInputStyle = inputStyle ++ [("color", "red")]
@@ -66,21 +69,19 @@ renderTag address t =
 
 view : Address Action -> Model -> Html
 view address m =
-    let filteredTransactions = filter (doFilter m) <| reverse <| sortBy .date m.transactions
-        filterBox = inputBox "filter" (message address << Filter) [] inputStyle
-        amountFilter = inputBox "amount filter" (message address << AmountFilter) [] <| if parseSuccess m.amountFilter then inputStyle else errorInputStyle
-        tagFilter = inputBox "tag filter" (message address << TagFilter) [] inputStyle
+    let filteredTransactions = filter (doFilter m.filter') <| reverse <| sortBy .date m.transactions
+        filterBox = inputBox "filter" (message address << Filter) [] (if parseSuccess m.filter' then inputStyle else errorInputStyle)
         addTagBox = inputBox "add tag" (message address << AddTag) [onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)] inputStyle
     in div
         []
         [ node "meta" [name "viewport", content "width=device-width, initial-scale=1.0, maximum-scale=1.0"] []
-        , mkTable [[filterBox, amountFilter, tagFilter]]
+        , filterBox
         , addTagBox
         , div [ style textStyle ]
               [ text ((toString (length filteredTransactions) ++ " transactions")
                     ++ " (rev " ++ (left 6 m.transactionsRev) ++ ")")]
         , div [ style errorTextStyle ] [ text (if m.error then "error: " ++ (toString m.error) else "") ]
+        , div [ style textStyle ] [ text <| toString <| parse (expr <* end) m.filter' ]
         , renderTransactions address filteredTransactions
         ]
-
 

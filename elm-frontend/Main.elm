@@ -13,7 +13,6 @@ import StartApp exposing (start)
 import Task exposing (Task)
 import View exposing (renderTransactions, mkTable, view)
 import List exposing (filter, foldr, map, sortBy, reverse, member, length)
-import AmountFilter exposing (doAmountFilter, parseSuccess)
 import Sha
 
 baseUrl = "https://karshan.me/"
@@ -44,8 +43,6 @@ update : Action -> Model -> (Model, Effects Action)
 update action m = case action of
     (LoadTransactions (rev, ts)) -> ({ m | transactions = ts, transactionsRev = rev }, Effects.none)
     (Filter s) -> ({ m | filter' = s }, Effects.none)
-    (AmountFilter s) -> ({ m | amountFilter = s }, Effects.none)
-    (TagFilter s) -> ({ m | tagFilter = s }, Effects.none)
     (AddTag s) -> ({ m | addTag = s }, Effects.none)
     PerformAddTag -> (m, performAddTag m)
     AddTagResponse b -> if b then (m, getTransactions) else ({ m | error = True }, Effects.none)
