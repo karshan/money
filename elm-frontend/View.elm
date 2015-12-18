@@ -10,8 +10,6 @@ import Signal exposing (Address, message)
 import List exposing (map, length, filter, reverse, sortBy)
 import Filter exposing (parseSuccess, expr)
 import Util exposing (zip)
-import Combine exposing (parse, end)
-import Combine.Infix exposing ((<*))
 
 inputStyle = [("width", "100%"), ("height", "4em"), ("border", "solid 1px gray")]
 errorInputStyle = inputStyle ++ [("color", "red")]
@@ -81,7 +79,6 @@ view address m =
               [ text ((toString (length filteredTransactions) ++ " transactions")
                     ++ " (rev " ++ (left 6 m.transactionsRev) ++ ")")]
         , div [ style errorTextStyle ] [ text (if m.error then "error: " ++ (toString m.error) else "") ]
-        , div [ style textStyle ] [ text <| toString <| parse (expr <* end) m.filter' ]
         , renderTransactions address filteredTransactions
         ]
 
