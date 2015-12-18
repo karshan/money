@@ -1,19 +1,21 @@
-import Html exposing (Html, node, div, input, text)
+import Decoders
+import Effects         exposing (Effects, Never)
+import Encoders
+import Html            exposing (Html, node, div, input, text)
 import Html.Attributes exposing (autofocus, style, placeholder, name, content)
-import Html.Events exposing (onKeyPress, on, targetValue)
+import Html.Events     exposing (onKeyPress, on, targetValue)
 import Http
-import Effects exposing (Effects, Never)
-import Json.Decode exposing (Decoder, tuple2, object1, object4, list, string, int, bool, (:=))
-import Json.Encode exposing (encode, Value)
-import Maybe exposing (withDefault)
-import Model exposing (Model, Transaction, Action (..), initModel)
-import Signal exposing (Address, message)
-import String exposing (contains, left, toLower)
-import StartApp exposing (start)
-import Task exposing (Task)
-import View exposing (renderTransactions, mkTable, view)
-import List exposing (filter, foldr, map, sortBy, reverse, member, length)
-import Sha
+import Json.Decode     exposing (Decoder, tuple2, object1, object4, list, string, int, bool, (:=))
+import Json.Encode     exposing (encode, Value)
+import List            exposing (filter, foldr, map, sortBy, reverse, member, length)
+import Maybe           exposing (withDefault)
+import Model           exposing (Model, Transaction, Action (..), initModel)
+import Signal          exposing (Address, message)
+import String          exposing (contains, left, toLower)
+import StartApp        exposing (start)
+import Task            exposing (Task)
+import Util            exposing (sha256)
+import View            exposing (renderTransactions, mkTable, view)
 
 baseUrl = "https://karshan.me/"
 
@@ -30,14 +32,8 @@ port tasks =
 init : (Model, Effects Action)
 init = (initModel, getTransactions)
 
-transactionToValue : Transaction -> Value
-transactionToValue t = let st = Json.Encode.string in
-    Json.Encode.object [("amount", Json.Encode.int t.amount), ("date", st t.date), ("description", st t.description), ("tags", Json.Encode.list <| map Json.Encode.string t.tags) ]
-
-sha256 s = Sha.digest "hex" <| Sha.update s "utf8" <| Sha.createHash "sha256"
-
 hashTransactions : List Transaction -> String
-hashTransactions = sha256 << Json.Encode.encode 0 << Json.Encode.list << map transactionToValue
+hashTransactions = sha256 << encode 0 << Encoders.transactions
 
 update : Action -> Model -> (Model, Effects Action)
 update action m = case action of
@@ -73,15 +69,8 @@ performRemoveTag m tag =
 
 getTransactions : Effects Action
 getTransactions =
-    Http.get (tuple2 (,) string (list transaction)) (baseUrl ++ "transactions")
+    Http.get (tuple2 (,) string Decoders.transactions) (baseUrl ++ "transactions")
       |> Task.toMaybe
       |> Task.map (LoadTransactions << withDefault ("", []))
       |> Effects.task
 
-transaction : Decoder Transaction
-transaction =
-    object4 Transaction
-      ("description" := string)
-      ("date" := string)
-      ("amount" := int)
-      ("tags" := list string)
