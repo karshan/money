@@ -3,11 +3,12 @@ module Filter where
 import Combine       exposing (Parser, Result (..), many, sepBy, between, end
                               , parse, choice, string, regex, andThen, maybe
                               , rec, chainl, parens, succeed)
-import Combine.Infix exposing ((<$>), (<$), (<*), (*>), (<|>))
+import Combine.Infix exposing ((<$>), (<$), (<*), (*>), (<|>), (<?>))
 import Combine.Num   exposing (digit, int)
 import List          exposing (foldr, map2, member)
 import Maybe         exposing (withDefault)
 import Model         exposing (Transaction)
+import String        exposing (fromChar, foldl)
 import Util          exposing (ciContains)
 
 type NumOp = Lt | Gt | NumEq
@@ -41,38 +42,53 @@ evalNumOp op amt n =
         NumEq -> amt == n
 
 ws : Parser String
-ws = regex "[ \t\r\n]*"
+ws = regex "[ \t\r\n]*" <?> "whitespace"
 
 not_ : Parser Expr
-not_ = Not <$> (string "not" *> expr)
+not_ = (Not <$> (string "not" *> expr)) <?> "notE"
 
 binOpAnd : Parser Expr
-binOpAnd = (string "and" *> ws *> expr) >>= (\e1 -> BinaryOp And e1 <$> (ws *> expr))
+binOpAnd = ((string "and" *> ws *> expr) >>= (\e1 -> BinaryOp And e1 <$> (ws *> expr))) <?> "binOpAnd"
 
 binOpOr : Parser Expr
-binOpOr = (string "or"  *> ws *> expr) >>= (\e1 -> BinaryOp Or  e1 <$> (ws *> expr))
+binOpOr = ((string "or"  *> ws *> expr) >>= (\e1 -> BinaryOp Or  e1 <$> (ws *> expr))) <?> "binOpOr"
+
+unescapeQuotes : String -> String
+unescapeQuotes =
+    let f c (acc, s) =
+        if s == False then
+            if c == '\\' then
+                (acc, True)
+            else
+                (acc ++ fromChar c, False)
+        else
+            if c == '"' then
+                (acc ++ "\"", False)
+            else
+                (acc ++ "\\" ++ fromChar c, False)
+    in fst << foldl f ("", False)
 
 stringLit : Parser String
-stringLit = between (string "\"") (string "\"") (regex "[^\"]*")
+stringLit = (string "\"" *> (unescapeQuotes <$> regex "(\\\\\"|[^\"\n])*") <* string "\"") <?> "stringLit"
 
-stringOp : Parser Expr
-stringOp =
-    StringOp CiContains <$>
-        (string "desc" *> between ws ws (string "<>") *> stringLit)
+desc : Parser Expr
+desc =
+    (StringOp CiContains <$>
+        (string "desc" *> between ws ws (string "<>") *> stringLit)) <?> "descFilter"
 
-numOp_ : Parser NumOp
-numOp_ = choice [ Lt <$ string "<", Gt <$ string ">", NumEq <$ string "=" ]
+numOp : Parser NumOp
+numOp = choice [ Lt <$ string "<", Gt <$ string ">", NumEq <$ string "=" ] <?> "numOp"
 
-numOp : Parser Expr
-numOp =
-    (string "amt" *> between ws ws numOp_) >>= (\op -> NumOp op <$> currency)
+amt : Parser Expr
+amt =
+    (string "amt" *> between ws ws numOp) >>= (\op -> NumOp op <$> currency) <?> "amtFilter"
 
-tagOp : Parser Expr
-tagOp =
-    (string "tag" *> between ws ws (string "<>")) >>= (\op -> TagOp <$> stringLit)
+tag : Parser Expr
+tag =
+    (string "tag" *> between ws ws (string "<>")) >>= (\op -> TagOp <$> stringLit) <?> "tagFilter"
 
 expr : Parser Expr
-expr = ws *> rec (\() -> stringOp <|> numOp <|> tagOp <|> parens expr <|> binOpAnd <|> binOpOr <|> not_)
+expr = ws *> rec (\() -> desc <|> amt <|> tag <|> parens expr <|> binOpAnd <|> binOpOr <|> not_)
 
 currency : Parser Int
 currency =
@@ -90,3 +106,6 @@ parseSuccess s =
     case parse (expr <* end) s of
       (Done _, _) -> True
       (Fail _, _) -> False
+
+parseDebug : String -> String
+parseDebug s = toString <| parse (expr <* end) s

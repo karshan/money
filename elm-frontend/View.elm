@@ -8,7 +8,7 @@ import Filter exposing (doFilter)
 import String exposing (isEmpty, left)
 import Signal exposing (Address, message)
 import List exposing (map, length, filter, reverse, sortBy)
-import Filter exposing (parseSuccess, expr)
+import Filter exposing (parseSuccess, parseDebug, expr)
 import Util exposing (zip)
 
 inputStyle = [("width", "100%"), ("height", "4em"), ("border", "solid 1px gray")]
@@ -79,6 +79,7 @@ view address m =
               [ text ((toString (length filteredTransactions) ++ " transactions")
                     ++ " (rev " ++ (left 6 m.transactionsRev) ++ ")")]
         , div [ style errorTextStyle ] [ text (if m.error then "error: " ++ (toString m.error) else "") ]
+        , div [ style textStyle ] [ text <| parseDebug m.filter' ]
         , renderTransactions address filteredTransactions
         ]
 
