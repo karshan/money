@@ -14,6 +14,7 @@
 module DB
     ( DB
     , DBContext
+    , Categorizer
     , addCredential
     , runDB
     , openDB
@@ -26,6 +27,8 @@ module DB
     , putCookieJar
     , getLogs
     , addLog
+    , getCategorizers
+    , addCategorizer
     )
     where
 
@@ -52,11 +55,13 @@ import           Scrapers.Browser       (LogRecord, RequestLog, ResponseLog)
 import           Scrapers.Common        (Cred (..), Credential (..))
 
 type DBContext = AcidState Database
+type Categorizer = (String, [String])
 data Database = Database {
     _transactions :: [Transaction]
   , _credentials  :: [Credential]
   , _cookieJar    :: CookieJar
   , _logs         :: [([LogRecord], Maybe String)]
+  , _categorizers :: [Categorizer]
   }
 
 makeLenses ''Database
@@ -143,11 +148,18 @@ getLogs_ = view logs <$> ask
 addLog_ :: ([LogRecord], Maybe String) -> Update Database ()
 addLog_ l = put . (logs %~ (l:)) =<< get
 
+getCategorizers_ :: Query Database [Categorizer]
+getCategorizers_ = view categorizers <$> ask
+
+addCategorizer_ :: Categorizer -> Update Database ()
+addCategorizer_ c = put . (categorizers %~ (c:)) =<< get
+
 $(makeAcidic ''Database [ 'mergeTransactions_, 'getTransactions_
                         , 'addCredential_, 'getCredentials_
                         , 'getCookieJar_, 'putCookieJar_
                         , 'getLogs_, 'addLog_
                         , 'addTags_, 'removeTags_
+                        , 'getCategorizers_, 'addCategorizer_
                         ])
 
 newtype DB a = DB { unDB :: ReaderT (AcidState Database) IO a }
@@ -157,7 +169,7 @@ runDB :: DBContext -> DB a -> IO a
 runDB db (DB a) = runReaderT a db
 
 openDB :: FilePath -> IO DBContext
-openDB fp = openLocalStateFrom fp (Database [] [] def [])
+openDB fp = openLocalStateFrom fp (Database [] [] def [] [])
 
 
 update' a = liftIO . update a
@@ -193,3 +205,9 @@ addTags (rev, filter', tag) = (`update'` AddTags_ rev filter' tag) =<< ask
 
 removeTags :: (String, String, String) -> DB Bool
 removeTags (rev, filter', tag) = (`update'` RemoveTags_ rev filter' tag) =<< ask
+
+getCategorizers :: DB [Categorizer]
+getCategorizers = (`query'` GetCategorizers_) =<< ask
+
+addCategorizer :: Categorizer -> DB ()
+addCategorizer c = (`update'` AddCategorizer_ c) =<< ask

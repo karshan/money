@@ -21,8 +21,7 @@ import qualified Data.ByteString            as BS (map)
 import qualified Data.ByteString.Base64.URL as URL
 import           Data.ByteString.Lazy       (toStrict)
 import           Data.ByteString.UTF8       (toString)
-import           Data.Char                  (isDigit, isPrint, isSpace,
-                                             ord)
+import           Data.Char                  (isDigit, isPrint, isSpace, ord)
 import           Data.Function              ((&))
 import           Data.List.Split            (splitOn)
 import           Data.Monoid                ((<>))
@@ -31,8 +30,10 @@ import qualified Data.Text                  as T (unpack)
 import           Data.Time.Clock            (diffUTCTime, getCurrentTime)
 import           Data.Time.Format           (defaultTimeLocale, formatTime,
                                              parseTimeM)
-import           DB                         (DB, DBContext, openDB, runDB)
-import qualified DB                         (addCredential, addTags,
+import           DB                         (Categorizer, DB, DBContext, openDB,
+                                             runDB)
+import qualified DB                         (addCategorizer, addCredential,
+                                             addTags, getCategorizers,
                                              getCredentials, getLogs,
                                              getTransactions, mergeTransactions,
                                              removeTags)
@@ -61,15 +62,18 @@ serverBaseUrl = "https://karshan.me"
 type API = MoneyAPI :<|> StaticAPI
 
 type MoneyAPI =
-         "transactions"  :> Get '[JSON] (String, [Transaction])
-    :<|> "addTags"       :> ReqBody '[JSON] (String, String, String)
-                         :> Put '[JSON] Bool
-    :<|> "removeTags"    :> ReqBody '[JSON] (String, String, String)
-                         :> Put '[JSON] Bool
-    :<|> "credentials"   :> Get '[JSON] [(String, String)] -- [(service, username)]
-    :<|> "addCredential" :> ReqBody '[JSON] Credential
-                         :> Put '[JSON] ()
-    :<|> "logs"          :> Get '[JSON] [([LogRecord], Maybe String)]
+         "transactions"   :> Get '[JSON] (String, [Transaction])
+    :<|> "addTags"        :> ReqBody '[JSON] (String, String, String)
+                          :> Put '[JSON] Bool
+    :<|> "removeTags"     :> ReqBody '[JSON] (String, String, String)
+                          :> Put '[JSON] Bool
+    :<|> "credentials"    :> Get '[JSON] [(String, String)] -- [(service, username)]
+    :<|> "addCredential"  :> ReqBody '[JSON] Credential
+                          :> Put '[JSON] ()
+    :<|> "logs"           :> Get '[JSON] [([LogRecord], Maybe String)]
+    :<|> "categorizers"   :> Get '[JSON] [Categorizer]
+    :<|> "addCategorizer" :> ReqBody '[JSON] Categorizer
+                          :> Put '[JSON] ()
 
 type StaticAPI = Raw
 
@@ -95,6 +99,8 @@ dbServer = DB.getTransactions
       :<|> (map showCredential <$> DB.getCredentials)
       :<|> DB.addCredential
       :<|> DB.getLogs
+      :<|> DB.getCategorizers
+      :<|> DB.addCategorizer
 
 trim :: String -> String
 trim = takeWhile (not . isSpace) . dropWhile isSpace
