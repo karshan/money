@@ -7,22 +7,23 @@ import Combine.Infix exposing ((<$>), (<$), (<*), (*>), (<|>), (<?>))
 import Combine.Num   exposing (digit, int)
 import List          exposing (foldr, map2, member)
 import Maybe         exposing (withDefault)
-import Model         exposing (Transaction)
+import Model         exposing (Transaction, Expr(..), NumOp(..), StringOp(..), BinaryOp(..))
 import String        exposing (fromChar, foldl)
 import Util          exposing (ciContains)
 
-type NumOp = Lt | Gt | NumEq
-type StringOp = CiContains
-type BinaryOp = And | Or
-
-type Expr =
-    Not Expr
-  | BinaryOp BinaryOp Expr Expr
-  | StringOp StringOp String
-  | NumOp NumOp Int
-  | TagOp String
-
 (>>=) = andThen
+
+parseFilter : String -> Maybe Expr
+parseFilter s =
+    case parse (expr <* end) s of
+        (Done e, _) -> Just e
+        _ -> Nothing
+
+doFilter : String -> Transaction -> Bool
+doFilter s t =
+    case parse (expr <* end) s of
+      (Done e, _) -> eval e t
+      (Fail _, _) -> True
 
 eval : Expr -> Transaction -> Bool
 eval e t =
@@ -94,12 +95,6 @@ currency : Parser Int
 currency =
     let decimalPart = (foldr (+) 0 << map2 (*) [10, 1]) <$> (string "." *> (many digit))
     in int >>= (\n -> ((+) (n * 100)) <$> (withDefault 0 <$> maybe decimalPart))
-
-doFilter : String -> Transaction -> Bool
-doFilter s t =
-    case parse (expr <* end) s of
-      (Done e, _) -> eval e t
-      (Fail _, _) -> True
 
 parseSuccess : String -> Bool
 parseSuccess s =

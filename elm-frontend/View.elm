@@ -3,12 +3,12 @@ module View where
 import Html exposing (Html, node, input, div, table, tr, td, text, span)
 import Html.Attributes exposing (autofocus, style, placeholder, name, content)
 import Html.Events exposing (onKeyPress, onClick, on, targetValue)
-import Model exposing (Model, Transaction, Action (..))
-import Filter exposing (doFilter)
+import Model exposing (Expr, Model, Transaction, Action (..))
+import Filter exposing (eval)
+import Set
 import String exposing (isEmpty, left)
 import Signal exposing (Address, message)
-import List exposing (map, length, filter, reverse, sortBy)
-import Filter exposing (parseSuccess, parseDebug, expr)
+import List exposing (concatMap, map, length, filter, reverse, sortBy)
 import Util exposing (zip)
 
 inputStyle = [("width", "100%"), ("height", "4em"), ("border", "solid 1px gray")]
@@ -65,10 +65,24 @@ renderTag address t =
       ]
       [text t]
 
+categorize : List (Maybe Expr, List String) -> List Transaction -> List Transaction
+categorize cats ts =
+    let g : Transaction -> (Maybe Expr, List String) -> List String
+        g t c = if evalFilter (fst c) t then snd c else []
+        f : Transaction -> Transaction
+        f t = { t | tags = Set.toList <| Set.fromList <| concatMap (g t) cats }
+    in  map f ts
+
+evalFilter : Maybe Model.Expr -> Transaction -> Bool
+evalFilter me t =
+    case me of
+        Just e  -> eval e t
+        Nothing -> True
+
 view : Address Action -> Model -> Html
 view address m =
-    let filteredTransactions = filter (doFilter m.filter') <| reverse <| sortBy .date m.transactions
-        filterBox = inputBox "filter" (message address << Filter) [] (if parseSuccess m.filter' then inputStyle else errorInputStyle)
+    let filteredTransactions = filter (evalFilter m.filterExpr) <| reverse <| sortBy .date <| categorize m.categorizers m.transactions
+        filterBox = inputBox "filter" (message address << Filter) [onKeyPress address (\k -> if k == 13 then FilterEnter else NoOp)] inputStyle
         addTagBox = inputBox "add tag" (message address << AddTag) [onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)] inputStyle
     in div
         []
@@ -79,7 +93,7 @@ view address m =
               [ text ((toString (length filteredTransactions) ++ " transactions")
                     ++ " (rev " ++ (left 6 m.transactionsRev) ++ ")")]
         , div [ style errorTextStyle ] [ text (if m.error then "error: " ++ (toString m.error) else "") ]
-        , div [ style textStyle ] [ text <| parseDebug m.filter' ]
+        , div [ style textStyle ] [ text <| toString <| m.filterExpr ]
         , renderTransactions address filteredTransactions
         ]
 
