@@ -1,28 +1,25 @@
+import API             exposing (doGet, doPut)
 import Decoders
 import Effects         exposing (Effects, Never)
 import Encoders
 import Filter          exposing (parseFilter)
-import Html            exposing (Html, node, div, input, text)
-import Html.Attributes exposing (autofocus, style, placeholder, name, content)
-import Html.Events     exposing (onKeyPress, on, targetValue)
-import Http
+import Html            exposing (Html)
 import Json.Decode     exposing (Decoder, tuple2, object1, object4, list, string, int, bool, (:=))
 import Json.Encode     exposing (encode, Value)
 import List            exposing (filter, foldr, map, sortBy, reverse, member, length)
 import Maybe           exposing (withDefault)
 import Model           exposing (Model, Transaction, Action (..), initModel)
 import Signal          exposing (Address, message)
-import String          exposing (contains, left, toLower)
 import StartApp        exposing (start)
 import Task            exposing (Task)
 import Util            exposing (Either, sha256)
 import View            exposing (renderTransactions, mkTable, view)
 
-baseUrl = "https://karshan.me/"
-
+app : StartApp.App Model
 app =
     start { init = init, view = view, update = update, inputs = [] }
 
+main : Signal Html
 main =
     app.html
 
@@ -47,30 +44,6 @@ update action m = case action of
     AddTagResponse b -> if b then (m, getTransactions) else ({ m | error = True }, Effects.none)
     RemoveTag s -> (m, performRemoveTag m s)
     NoOp -> (m, Effects.none)
-
-doPut : String -> String -> Decoder a -> (Maybe a -> Action) -> Effects Action
-doPut endpoint data decoder cb =
-    Http.send Http.defaultSettings
-        { verb = "PUT"
-        , headers = [("Content-Type", "application/json")]
-        , url = baseUrl ++ endpoint
-        , body = Http.string <| data
-        } |> Http.fromJson decoder
-          |> Task.toMaybe
-          |> Task.map cb
-          |> Effects.task
-
-doGet : String -> Decoder a -> (Maybe a -> Action) -> Effects Action
-doGet endpoint decoder cb =
-    Http.send Http.defaultSettings
-        { verb = "GET"
-        , headers = []
-        , body = Http.string ""
-        , url = baseUrl ++ endpoint
-        } |> Http.fromJson decoder
-          |> Task.toMaybe
-          |> Task.map cb
-          |> Effects.task
 
 performAddTag : Model -> Effects Action
 performAddTag m =
