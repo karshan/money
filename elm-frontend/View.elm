@@ -9,7 +9,7 @@ import Set
 import String exposing (isEmpty, left)
 import Signal exposing (Address, message)
 import List exposing (concatMap, map, length, filter, reverse, sortBy)
-import Util exposing (zip)
+import Util exposing (Either (..), either, zip)
 
 inputStyle = [("width", "100%"), ("height", "4em"), ("border", "solid 1px gray")]
 errorInputStyle = inputStyle ++ [("color", "red")]
@@ -65,19 +65,19 @@ renderTag address t =
       ]
       [text t]
 
-categorize : List (Maybe Expr, List String) -> List Transaction -> List Transaction
+categorize : List (Either String Expr, List String) -> List Transaction -> List Transaction
 categorize cats ts =
-    let g : Transaction -> (Maybe Expr, List String) -> List String
+    let g : Transaction -> (Either String Expr, List String) -> List String
         g t c = if evalFilter (fst c) t then snd c else []
         f : Transaction -> Transaction
         f t = { t | tags = Set.toList <| Set.fromList <| concatMap (g t) cats }
     in  map f ts
 
-evalFilter : Maybe Model.Expr -> Transaction -> Bool
+evalFilter : Either String Model.Expr -> Transaction -> Bool
 evalFilter me t =
     case me of
-        Just e  -> eval e t
-        Nothing -> True
+        Right e  -> eval e t
+        Left _ -> True
 
 view : Address Action -> Model -> Html
 view address m =
@@ -93,7 +93,6 @@ view address m =
               [ text ((toString (length filteredTransactions) ++ " transactions")
                     ++ " (rev " ++ (left 6 m.transactionsRev) ++ ")")]
         , div [ style errorTextStyle ] [ text (if m.error then "error: " ++ (toString m.error) else "") ]
-        , div [ style textStyle ] [ text <| toString <| m.filterExpr ]
+        , div [ style textStyle ] [ text <| either identity toString <| m.filterExpr ]
         , renderTransactions address filteredTransactions
         ]
-

@@ -9,15 +9,15 @@ import List          exposing (foldr, map2, member)
 import Maybe         exposing (withDefault)
 import Model         exposing (Transaction, Expr(..), NumOp(..), StringOp(..), BinaryOp(..))
 import String        exposing (fromChar, foldl)
-import Util          exposing (ciContains)
+import Util          exposing (Either (..), ciContains)
 
 (>>=) = andThen
 
-parseFilter : String -> Maybe Expr
+parseFilter : String -> Either String Expr
 parseFilter s =
     case parse (expr <* end) s of
-        (Done e, _) -> Just e
-        _ -> Nothing
+        (Done e, _) -> Right e
+        _ -> Left <| parseDebug s
 
 doFilter : String -> Transaction -> Bool
 doFilter s t =

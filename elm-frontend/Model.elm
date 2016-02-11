@@ -1,7 +1,7 @@
 module Model where
 
 import List   exposing (foldr, map)
-import Util   exposing (ciContains)
+import Util   exposing (Either (..), ciContains)
 
 type NumOp = Lt | Gt | NumEq
 type StringOp = CiContains
@@ -26,9 +26,9 @@ type Action = LoadTransactions (String, List Transaction)
 type alias Model =
     { transactions : List Transaction
     , transactionsRev : String
-    , categorizers : List (Maybe Expr, List String)
+    , categorizers : List (Either String Expr, List String)
     , filter' : String
-    , filterExpr : Maybe Expr
+    , filterExpr : Either String Expr
     , addTag : String
     , error : Bool
     }
@@ -45,7 +45,7 @@ initModel =
     , transactionsRev = ""
     , categorizers = []
     , filter' = ""
-    , filterExpr = Nothing
+    , filterExpr = Left "initial filter"
     , addTag = ""
     , error = False
     }

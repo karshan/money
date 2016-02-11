@@ -15,7 +15,7 @@ import Signal          exposing (Address, message)
 import String          exposing (contains, left, toLower)
 import StartApp        exposing (start)
 import Task            exposing (Task)
-import Util            exposing (sha256)
+import Util            exposing (Either, sha256)
 import View            exposing (renderTransactions, mkTable, view)
 
 baseUrl = "https://karshan.me/"
@@ -87,7 +87,7 @@ getTransactions : Effects Action
 getTransactions =
     Effects.batch
         [ doGet "transactions"
-                (tuple2 (,) string Decoders.transactions) 
+                (tuple2 (,) string Decoders.transactions)
                 (LoadTransactions << withDefault ("", []))
         , doGet "categorizers"
                 (list (tuple2 (,) string (list string)))
