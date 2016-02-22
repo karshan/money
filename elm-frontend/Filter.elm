@@ -33,7 +33,6 @@ eval e t =
       (BinaryOp Or e1 e2)                   -> eval e1 t || eval e2 t
       (StringOp CiContains s)               -> s `ciContains` t.description -- GG contains is totally backwards
       (NumOp op n)                          -> evalNumOp op (-1 * t.amount) n -- this -1 is because we display -1 * amounts...
-      (TagOp s)                             -> s `member` t.tags
 
 evalNumOp : NumOp -> Int -> Int -> Bool
 evalNumOp op amt n =
@@ -84,12 +83,8 @@ amt : Parser Expr
 amt =
     (string "amt" *> between ws ws numOp) >>= (\op -> NumOp op <$> currency) <?> "amtFilter"
 
-tag : Parser Expr
-tag =
-    (string "tag" *> between ws ws (string "<>")) >>= (\op -> TagOp <$> stringLit) <?> "tagFilter"
-
 expr : Parser Expr
-expr = ws *> rec (\() -> desc <|> amt <|> tag <|> parens expr <|> binOpAnd <|> binOpOr <|> not_)
+expr = ws *> rec (\() -> desc <|> amt <|> parens expr <|> binOpAnd <|> binOpOr <|> not_)
 
 currency : Parser Int
 currency =

@@ -11,7 +11,6 @@ type Expr =
   | BinaryOp BinaryOp Expr Expr
   | StringOp StringOp String
   | NumOp NumOp Int
-  | TagOp String
 
 type Action = LoadTransactions (String, List Transaction)
             | LoadCategorizers (List (String, List String))
@@ -36,7 +35,6 @@ type alias Transaction =
     { description : String
     , date : String
     , amount : Int
-    , tags : List String
     }
 
 initModel : Model

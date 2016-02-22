@@ -5,7 +5,7 @@ import Html.Attributes exposing (autofocus, style, placeholder, name, content)
 import Html.Events exposing (onKeyPress, onClick, on, targetValue)
 import Model exposing (Expr, Model, Transaction, Action (..))
 import Filter exposing (eval)
-import Set
+import Set exposing (Set)
 import String exposing (isEmpty, left)
 import Signal exposing (Address, message)
 import List exposing (concatMap, map, length, filter, reverse, sortBy)
@@ -45,17 +45,17 @@ mkTable xss  =
             <| zip [1..length xs] xs)
             <| zip [1..length xss] xss
 
-renderTransactions : Address Action -> List Transaction -> Html
+renderTransactions : Address Action -> List (Transaction, Set String) -> Html
 renderTransactions address transactions =
     mkTable <| [map text ["date", "description", "amount", "tags"]]
              ++ map (renderTransaction address) transactions
 
-renderTransaction : Address Action -> Transaction -> List Html
-renderTransaction address {description, date, amount, tags} =
+renderTransaction : Address Action -> (Transaction, Set String) -> List Html
+renderTransaction address ({description, date, amount}, tags) =
     let stringAmount = toString (-amount // 100) ++ "." ++ pad (toString ((abs amount) `rem` 100))
         pad n = if String.length n == 1 then n ++ "0" else n
         amountDiv = div [style [("text-align", "right")]] [text stringAmount]
-    in  [text date, text description, amountDiv] ++ [div [] <| map (renderTag address) tags]
+    in  [text date, text description, amountDiv] ++ [div [] <| map (renderTag address) []]
 
 renderTag : Address Action -> String -> Html
 renderTag address t =
@@ -65,12 +65,12 @@ renderTag address t =
       ]
       [text t]
 
-categorize : List (Either String Expr, List String) -> List Transaction -> List Transaction
+categorize : List (Either String Expr, List String) -> List Transaction -> List (Transaction, Set String)
 categorize cats ts =
-    let g : Transaction -> (Either String Expr, List String) -> List String
-        g t c = if evalFilter (fst c) t then snd c else []
-        f : Transaction -> Transaction
-        f t = { t | tags = Set.toList <| Set.fromList <| concatMap (g t) cats }
+    let g : Transaction -> (Either String Expr, List String) -> Set String
+        g tr (expr, tags) = if evalFilter expr tr then Set.fromList tags else Set.empty
+        f : Transaction -> (Transaction, Set String)
+        f t = (t, List.foldr Set.union Set.empty <| map (g t) cats)
     in  map f ts
 
 evalFilter : Either String Model.Expr -> Transaction -> Bool
@@ -81,7 +81,7 @@ evalFilter me t =
 
 view : Address Action -> Model -> Html
 view address m =
-    let filteredTransactions = filter (evalFilter m.filterExpr) <| reverse <| sortBy .date <| categorize m.categorizers m.transactions
+    let filteredTransactions = filter (evalFilter m.filterExpr << fst) <| reverse <| sortBy (.date << fst) <| categorize m.categorizers m.transactions
         filterBox = inputBox "filter" (message address << Filter) [onKeyPress address (\k -> if k == 13 then FilterEnter else NoOp)] inputStyle
         addTagBox = inputBox "add tag" (message address << AddTag) [onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)] inputStyle
     in div

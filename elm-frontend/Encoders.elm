@@ -10,7 +10,6 @@ transaction t =
         [ ("amount", int t.amount)
         , ("date", string t.date)
         , ("description", string t.description)
-        , ("tags", list <| map string t.tags)
         ]
 
 transactions : List Transaction -> Value
