@@ -49,7 +49,7 @@ performAddTag : Model -> Effects Action
 performAddTag m =
     let data = encode 0 <| Json.Encode.list <|
             [Json.Encode.string m.filter', Json.Encode.list [Json.Encode.string m.addTag]]
-    in doPut "addCategorizer" data (list string) (AddTagResponse << always True) -- TODO NO
+    in doPut "addCategorizer" data (list string) (always NoOp)
 
 performRemoveTag : Model -> String -> Effects Action
 performRemoveTag m tag =
