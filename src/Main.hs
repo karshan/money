@@ -33,10 +33,9 @@ import           Data.Time.Format           (defaultTimeLocale, formatTime,
 import           DB                         (Categorizer, DB, DBContext, openDB,
                                              runDB)
 import qualified DB                         (addCategorizer, addCredential,
-                                             addTags, getCategorizers,
+                                             getCategorizers,
                                              getCredentials, getLogs,
-                                             getTransactions, mergeTransactions,
-                                             removeTags)
+                                             getTransactions, mergeTransactions)
 import           Money                      (Transaction (..))
 import           Network.HTTP.Types.Header  (hCookie)
 import           Network.HTTP.Types.Status  (badRequest400, found302,
@@ -63,10 +62,6 @@ type API = MoneyAPI :<|> StaticAPI
 
 type MoneyAPI =
          "transactions"   :> Get '[JSON] (String, [Transaction])
-    :<|> "addTags"        :> ReqBody '[JSON] (String, String, String)
-                          :> Put '[JSON] Bool
-    :<|> "removeTags"     :> ReqBody '[JSON] (String, String, String)
-                          :> Put '[JSON] Bool
     :<|> "credentials"    :> Get '[JSON] [(String, String)] -- [(service, username)]
     :<|> "addCredential"  :> ReqBody '[JSON] Credential
                           :> Put '[JSON] ()
@@ -94,8 +89,6 @@ staticServer request respond = if null (pathInfo request) then respond $ respons
 
 dbServer :: ServerT MoneyAPI DB
 dbServer = DB.getTransactions
-      :<|> DB.addTags
-      :<|> DB.removeTags
       :<|> (map showCredential <$> DB.getCredentials)
       :<|> DB.addCredential
       :<|> DB.getLogs

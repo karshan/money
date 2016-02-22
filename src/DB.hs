@@ -19,8 +19,6 @@ module DB
     , runDB
     , openDB
     , getTransactions
-    , addTags
-    , removeTags
     , getCredentials
     , mergeTransactions
     , getCookieJar
@@ -46,7 +44,7 @@ import           Data.ByteString.Lazy   (toStrict)
 import           Data.Char              (toLower)
 import           Data.Default.Class     (def)
 import           Data.Function          (on)
-import           Data.List              (deleteFirstsBy, isInfixOf, nub)
+import           Data.List              (deleteFirstsBy, isInfixOf)
 import           Data.Maybe             (isJust)
 import           Data.SafeCopy          (base, deriveSafeCopy)
 import           Money                  (Transaction (..))
@@ -85,30 +83,6 @@ hashTransactions ts = show $ sha256 $ toStrict $ encode ts
 
 ciIsInfixOf :: String -> String -> Bool
 ciIsInfixOf = isInfixOf `on` map toLower
-
-addTags_ :: String -> String -> String -> Update Database Bool
-addTags_ rev filter' tag = do
-    db <- get
-    if rev /= hashTransactions (db ^. transactions) then
-        return False
-    else do
-        put $ db & transactions %~
-                    map (\t -> if filter' `ciIsInfixOf` description t
-                             then t { tags = nub $ tag:tags t }
-                             else t)
-        return True
-
-removeTags_ :: String -> String -> String -> Update Database Bool
-removeTags_ rev filter' tag = do
-    db <- get
-    if rev /= hashTransactions (db ^. transactions) then
-        return False
-    else do
-        put $ db & transactions %~
-                    map (\t -> if filter' `ciIsInfixOf` description t
-                             then t { tags = filter (/= tag) $ tags t }
-                             else t)
-        return True
 
 -- returns the number of new transactions (those that are not already in the db)
 mergeTransactions_ :: [Transaction] -> Update Database Int
@@ -158,7 +132,6 @@ $(makeAcidic ''Database [ 'mergeTransactions_, 'getTransactions_
                         , 'addCredential_, 'getCredentials_
                         , 'getCookieJar_, 'putCookieJar_
                         , 'getLogs_, 'addLog_
-                        , 'addTags_, 'removeTags_
                         , 'getCategorizers_, 'addCategorizer_
                         ])
 
@@ -199,12 +172,6 @@ getLogs = filter (isJust . snd) <$> ((`query'` GetLogs_) =<< ask)
 
 addLog :: ([LogRecord], Maybe String) -> DB ()
 addLog l = (`update'` AddLog_ l) =<< ask
-
-addTags :: (String, String, String) -> DB Bool
-addTags (rev, filter', tag) = (`update'` AddTags_ rev filter' tag) =<< ask
-
-removeTags :: (String, String, String) -> DB Bool
-removeTags (rev, filter', tag) = (`update'` RemoveTags_ rev filter' tag) =<< ask
 
 getCategorizers :: DB [Categorizer]
 getCategorizers = (`query'` GetCategorizers_) =<< ask

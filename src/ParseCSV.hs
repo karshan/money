@@ -44,7 +44,6 @@ parseDebit s = mapMaybe csvRecordToTransaction tRecords
             return Transaction { description = _description
                                , date = _date
                                , amount = _amount
-                               , tags = []
                                }
 
 parseCredit :: String -> [Transaction]
@@ -60,7 +59,6 @@ parseCredit s = mapMaybe recordToTransaction records
             return Transaction { description = _description
                                , date = _date
                                , amount = _amount
-                               , tags = []
                                }
 
 parseTCF :: String -> [Transaction]
@@ -78,7 +76,6 @@ parseTCF s = mapMaybe csvRecordToTransaction tRecords
             return Transaction { description = _description
                                , date = _date
                                , amount = _amount
-                               , tags = []
                                }
 
 -- The point of this function is to convert transaction descriptions into
