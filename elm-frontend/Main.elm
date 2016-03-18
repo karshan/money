@@ -28,7 +28,7 @@ port tasks =
     app.tasks
 
 init : (Model, Effects Action)
-init = (initModel, getTransactions)
+init = (initModel, initFx)
 
 hashTransactions : List Transaction -> String
 hashTransactions = sha256 << encode 0 << Encoders.transactions
@@ -37,27 +37,19 @@ update : Action -> Model -> (Model, Effects Action)
 update action m = case action of
     (LoadTransactions (rev, ts)) -> ({ m | transactions = ts, transactionsRev = rev }, Effects.none)
     (LoadCategorizers cats) -> ({ m | categorizers = map (\(a, b) -> (parseFilter a, b)) cats }, Effects.none)
-    (Filter s) -> ({ m | filter' = s }, Effects.none)
+    (FilterInput s) -> ({ m | filter' = s }, Effects.none)
     FilterEnter -> ({ m | filterExpr = parseFilter m.filter' }, Effects.none)
-    (AddTag s) -> ({ m | addTag = s }, Effects.none)
-    PerformAddTag -> (m, performAddTag m)
-    AddTagResponse b -> if b then (m, getTransactions) else ({ m | error = True }, Effects.none)
-    RemoveTag s -> (m, performRemoveTag m s)
+    (AddTagInput s) -> ({ m | addTag = s }, Effects.none)
     NoOp -> (m, Effects.none)
 
-performAddTag : Model -> Effects Action
-performAddTag m =
+addCategorizer : Model -> Effects Action
+addCategorizer m =
     let data = encode 0 <| Json.Encode.list <|
             [Json.Encode.string m.filter', Json.Encode.list [Json.Encode.string m.addTag]]
     in doPut "addCategorizer" data (list string) (always NoOp)
 
-performRemoveTag : Model -> String -> Effects Action
-performRemoveTag m tag =
-    let data = encode 0 <| Json.Encode.list <| map Json.Encode.string [m.transactionsRev, m.filter', tag]
-    in doPut "removeTags" data bool (AddTagResponse << withDefault False)
-
-getTransactions : Effects Action
-getTransactions =
+initFx : Effects Action
+initFx =
     Effects.batch
         [ doGet "transactions"
                 (tuple2 (,) string Decoders.transactions)

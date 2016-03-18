@@ -15,7 +15,7 @@ send verb headers endpoint data decoder cb =
     Http.send Http.defaultSettings
         { verb = verb
         , headers = headers
-        , url = baseUrl ++ endpoint
+        , url = baseUrl ++ "/" ++ endpoint
         , body = Http.string <| data
         } |> Http.fromJson decoder
           |> Task.toMaybe

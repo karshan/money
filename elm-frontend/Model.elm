@@ -14,12 +14,9 @@ type Expr =
 
 type Action = LoadTransactions (String, List Transaction)
             | LoadCategorizers (List (String, List String))
-            | Filter String
+            | FilterInput String
             | FilterEnter
-            | AddTag String
-            | PerformAddTag
-            | AddTagResponse Bool
-            | RemoveTag String
+            | AddTagInput String
             | NoOp
 
 type alias Model =

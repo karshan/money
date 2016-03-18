@@ -38,11 +38,10 @@ import qualified DB                         (addCategorizer, addCredential,
                                              getTransactions, mergeTransactions)
 import           Money                      (Transaction (..))
 import           Network.HTTP.Types.Header  (hCookie)
-import           Network.HTTP.Types.Status  (badRequest400, found302,
-                                             notFound404, ok200)
+import           Network.HTTP.Types.Status  (badRequest400, found302)
 import           Network.Wai                (Application, ResponseReceived,
-                                             pathInfo, queryString,
-                                             requestHeaders, responseFile,
+                                             queryString,
+                                             requestHeaders,
                                              responseLBS)
 import           Network.Wai.Handler.Warp   (defaultSettings, runSettings,
                                              setHost, setPort)
@@ -54,11 +53,12 @@ import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
                                              JSON, Proxy (..), Put, Raw,
                                              ReqBody, ServantErr (..), Server,
                                              ServerT, enter, serve)
+import           Servant.Utils.StaticFiles  (serveDirectory)
 
 serverBaseUrl :: ByteString
-serverBaseUrl = "https://karshan.me"
+serverBaseUrl = "https://money.karshan.me/static/index.html"
 
-type API = MoneyAPI :<|> StaticAPI
+type API = MoneyAPI :<|> ("static" :> Raw)
 
 type MoneyAPI =
          "transactions"   :> Get '[JSON] (String, [Transaction])
@@ -70,8 +70,6 @@ type MoneyAPI =
     :<|> "addCategorizer" :> ReqBody '[JSON] Categorizer
                           :> Put '[JSON] ()
 
-type StaticAPI = Raw
-
 api :: Proxy API
 api = Proxy
 
@@ -79,13 +77,10 @@ app :: DBContext -> Application
 app ctx = serve api (server ctx)
 
 server :: DBContext -> Server API
-server ctx = enter (Nat nat) dbServer :<|> staticServer
+server ctx = enter (Nat nat) dbServer :<|> serveDirectory "frontend/Main.jsexe"
     where
         nat :: DB a -> EitherT ServantErr IO a
         nat a = liftIO $ runDB ctx a
-
-staticServer :: Server StaticAPI
-staticServer request respond = if null (pathInfo request) then respond $ responseFile ok200 [("Content-Type", "text/html")] "elm-frontend/index.html" Nothing else respond $ responseLBS notFound404 [] "not found"
 
 dbServer :: ServerT MoneyAPI DB
 dbServer = DB.getTransactions
@@ -126,7 +121,7 @@ authMiddleware passphrase (googClientId, googClientSecret) googIds mainApp req r
       invalidCode = respond $ responseLBS badRequest400 [] "invalid code"
       authRedirectUrl = "https://accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=" <> googClientId <> "&redirect_uri=" <> serverBaseUrl <> "&scope=profile"
       setCookieRedirect :: IO ResponseReceived
-      setCookieRedirect = generateCookie >>= (\cookie -> respond $ responseLBS found302 [("Location", authRedirectUrl), ("Set-Cookie", fromString cookieName <> "=" <> cookie)] "")
+      setCookieRedirect = generateCookie >>= (\cookie -> respond $ responseLBS found302 [("Location", authRedirectUrl), ("Set-Cookie", fromString cookieName <> "=" <> cookie <> "; Path=/; Secure; HttpOnly;")] "")
       generateCookie :: IO ByteString
       generateCookie = either (error "fatal: cbcEncrypt' failed with: ") cookieEncode <$>
           (cbcEncrypt' passphrase =<< fromString . formatTime defaultTimeLocale "%s" <$> getCurrentTime)

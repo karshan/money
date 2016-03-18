@@ -61,7 +61,7 @@ renderTag : Address Action -> String -> Html
 renderTag address t =
     span
       [ style tagStyle
-      , onClick address <| RemoveTag t
+      , onClick address <| NoOp
       ]
       [text t]
 
@@ -82,8 +82,8 @@ evalFilter me t =
 view : Address Action -> Model -> Html
 view address m =
     let filteredTransactions = filter (evalFilter m.filterExpr << fst) <| reverse <| sortBy (.date << fst) <| categorize m.categorizers m.transactions
-        filterBox = inputBox "filter" (message address << Filter) [onKeyPress address (\k -> if k == 13 then FilterEnter else NoOp)] inputStyle
-        addTagBox = inputBox "add tag" (message address << AddTag) [onKeyPress address (\k -> if k == 13 {- enter -} then PerformAddTag else NoOp)] inputStyle
+        filterBox = inputBox "filter" (message address << FilterInput) [onKeyPress address (\k -> if k == 13 then FilterEnter else NoOp)] inputStyle
+        addTagBox = inputBox "add tag" (message address << AddTagInput) [onKeyPress address (\k -> if k == 13 {- enter -} then NoOp else NoOp)] inputStyle
     in div
         []
         [ node "meta" [name "viewport", content "width=device-width, initial-scale=1.0, maximum-scale=1.0"] []
