@@ -19,7 +19,7 @@ import Reflex
 import Reflex.Dom
 import Reflex.Dom.Xhr
 
-import Servant.Reflex
+import Servant.Client
 import Servant.API
 
 import GHCJS.Marshal
@@ -31,17 +31,14 @@ data Transaction = Transaction { description :: String
                                } deriving (Show, Read, Eq, Ord, Generic, FromJSON, ToJSON, ToJSVal, FromJSVal)
 
 type API =
-         "transactions"   :> Get '[JSON] String
+         "transactions"   :> Get '[JSON] (String, [Transaction])
 
-getTransactions :: MonadWidget t m => Event t () -> m (Event t (Maybe String, XhrResponse))
-getTransactions = client (Proxy :: Proxy API) (Proxy :: Proxy m) (constDyn host)
+getTransactions :: EitherT ServantError IO (String, [Transaction])
+getTransactions = client (Proxy :: Proxy API) (Just host)
   where
-    host = BaseUrl Https "karshan.me" 443 ""
+    host = BaseUrl Https "karshan.me" 443
 
 main = do
     mainWidget $ el "div" $ do
-    pb <- getPostBuild
-    let req = xhrRequest "GET" "/transactions" def
-    responseEvent <- performRequestAsync (const req <$> pb)
-    responseDynamic <- holdDyn Nothing (_xhrResponse_responseText <$> responseEvent)
-    dynText =<< (mapDyn show responseDynamic)
+    ts <- liftIO $ runEitherT getTransactions
+    text (either (const "error") show ts)
