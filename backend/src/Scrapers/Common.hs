@@ -1,6 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
-{-# OPTIONS_GHC -fno-warn-missing-methods #-}
 module Scrapers.Common
     ( Cred (..)
     , Credential (..)
@@ -8,11 +5,9 @@ module Scrapers.Common
     , queryParamsFromUrl
     ) where
 
-import           Data.Aeson      (FromJSON, ToJSON)
 import           Data.List.Split (splitOn)
 import           Data.List.Util  ((!!))
 import           Data.Maybe      (mapMaybe)
-import           GHC.Generics    (Generic)
 import           Prelude         hiding (last, (!!))
 import           Money.API       (Cred (..), Credential (..))
 

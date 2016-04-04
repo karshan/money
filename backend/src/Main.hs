@@ -30,13 +30,12 @@ import qualified Data.Text                  as T (unpack)
 import           Data.Time.Clock            (diffUTCTime, getCurrentTime)
 import           Data.Time.Format           (defaultTimeLocale, formatTime,
                                              parseTimeM)
-import           DB                         (Categorizer, DB, DBContext, openDB,
+import           DB                         (DB, DBContext, openDB,
                                              runDB)
 import qualified DB                         (addCategorizer, addCredential,
                                              getCategorizers,
                                              getCredentials, getLogs,
                                              getTransactions, mergeTransactions)
-import           Money                      (Transaction (..))
 import           Network.HTTP.Types.Header  (hCookie)
 import           Network.HTTP.Types.Status  (badRequest400, found302)
 import           Network.Wai                (Application, ResponseReceived,
@@ -47,11 +46,10 @@ import           Network.Wai.Handler.Warp   (defaultSettings, runSettings,
                                              setHost, setPort)
 import           Network.Wreq               (get, post, responseBody)
 import qualified Scrapers                   (getAllTransactions)
-import           Scrapers.Browser           (LogRecord)
-import           Scrapers.Common            (Credential, showCredential)
-import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
-                                             JSON, Proxy (..), Put, Raw,
-                                             ReqBody, ServantErr (..), Server,
+import           Scrapers.Common            (showCredential)
+import           Servant                    ((:<|>) (..), (:~>) (..),
+                                             Proxy (..), 
+                                             ServantErr (..), Server,
                                              ServerT, enter, serve)
 import           Servant.Utils.StaticFiles  (serveDirectory)
 import           Money.API                  (MoneyAPI, API)

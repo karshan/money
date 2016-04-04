@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
 module Scrapers.Browser.Log
     ( RequestLog (..)
@@ -10,13 +8,11 @@ module Scrapers.Browser.Log
     ) where
 
 import           Control.Lens                 (both, (%~), (^.))
-import           Data.Aeson                   (FromJSON, ToJSON)
 import           Data.ByteString              (ByteString)
 import           Data.ByteString.Lazy         (toStrict)
 import qualified Data.ByteString.Lazy         as LBS (ByteString)
 import           Data.ByteString.UTF8         (toString)
 import           Data.CaseInsensitive         (original)
-import           GHC.Generics                 (Generic)
 import           Network.HTTP.Client.Internal (expose)
 import           Network.Wreq                 (Response, responseBody,
                                                responseCookieJar,
