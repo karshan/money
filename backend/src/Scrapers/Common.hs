@@ -14,6 +14,7 @@ import           Data.List.Util  ((!!))
 import           Data.Maybe      (mapMaybe)
 import           GHC.Generics    (Generic)
 import           Prelude         hiding (last, (!!))
+import           Money.API       (Cred (..), Credential (..))
 
 
 -- Aeson.encode $ BankOfAmericaCreds $ Cred "hi" "there" [("a","b")] =
@@ -25,12 +26,6 @@ import           Prelude         hiding (last, (!!))
 --     "secretQuestionAnswers": [["a","b"]]
 --   }
 -- }
-data Credential = BankOfAmericaCreds Cred | ChaseCreds Cred deriving (Generic, FromJSON, ToJSON)
-
-data Cred = Cred { username              :: String
-                 , password              :: String
-                 , secretQuestionAnswers :: [(String, String)]
-                 } deriving (Generic, ToJSON, FromJSON)
 
 showCredential :: Credential -> (String, String)
 showCredential (BankOfAmericaCreds c) = ("BankOfAmerica", username c)

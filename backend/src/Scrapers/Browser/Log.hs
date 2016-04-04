@@ -22,10 +22,7 @@ import           Network.Wreq                 (Response, responseBody,
                                                responseCookieJar,
                                                responseHeaders, responseStatus,
                                                statusCode)
-
-data RequestLog = Get String | Post String [(String, String)] deriving (Generic, Show, FromJSON, ToJSON)
-data ResponseLog = ResponseLog Int [(String, String)] String [String] deriving (Generic, Show, FromJSON, ToJSON)
-type LogRecord = (RequestLog, ResponseLog)
+import           Money.API (RequestLog (..), ResponseLog (..), LogRecord)
 
 mkResponseLog :: Response LBS.ByteString -> ResponseLog
 mkResponseLog r = ResponseLog (r ^. responseStatus ^. statusCode)

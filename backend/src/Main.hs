@@ -54,21 +54,10 @@ import           Servant                    ((:<|>) (..), (:>), (:~>) (..), Get,
                                              ReqBody, ServantErr (..), Server,
                                              ServerT, enter, serve)
 import           Servant.Utils.StaticFiles  (serveDirectory)
+import           Money.API                  (MoneyAPI, API)
 
 serverBaseUrl :: ByteString
 serverBaseUrl = "https://money.karshan.me/static/index.html"
-
-type API = MoneyAPI :<|> ("static" :> Raw)
-
-type MoneyAPI =
-         "transactions"   :> Get '[JSON] (String, [Transaction])
-    :<|> "credentials"    :> Get '[JSON] [(String, String)] -- [(service, username)]
-    :<|> "addCredential"  :> ReqBody '[JSON] Credential
-                          :> Put '[JSON] ()
-    :<|> "logs"           :> Get '[JSON] [([LogRecord], Maybe String)]
-    :<|> "categorizers"   :> Get '[JSON] [Categorizer]
-    :<|> "addCategorizer" :> ReqBody '[JSON] Categorizer
-                          :> Put '[JSON] ()
 
 api :: Proxy API
 api = Proxy
