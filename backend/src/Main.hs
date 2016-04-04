@@ -64,7 +64,7 @@ app :: DBContext -> Application
 app ctx = serve api (server ctx)
 
 server :: DBContext -> Server API
-server ctx = enter (Nat nat) dbServer :<|> serveDirectory "frontend/Main.jsexe"
+server ctx = enter (Nat nat) dbServer :<|> serveDirectory "frontend/dist/build/money-frontend/money-frontend.jsexe/"
     where
         nat :: DB a -> EitherT ServantErr IO a
         nat a = liftIO $ runDB ctx a
