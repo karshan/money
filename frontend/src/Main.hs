@@ -81,16 +81,18 @@ evaluate f actions = performEvent $ fmap (liftIO . f) actions
 main :: IO ()
 main = do
   mainWidget $ el "div" $ do
+  pb <- getPostBuild
+  addCred_evt <- addCredWidget
   el "div" transactionWidget
-  el "div" credsWidget
-  el "div" addCredWidget
+  el "div" (credsWidget (appendEvents pb addCred_evt))
     where
       transactionWidget = do
         ts <- liftIO $ runEitherT getTransactions
         text (either (const "error") show ts)
-      credsWidget = do
-        creds <- liftIO $ runEitherT getCreds
-        text (either (const "error") show creds)
+      credsWidget e = do
+        res <- evaluate (\_ -> fmap (either (const "error") show) $ runEitherT $ getCreds) e
+        dynRes <- holdDyn "waiting..." res
+        dynText dynRes
       addCredWidget = do
         el "div" $ do
         text "user"
@@ -104,4 +106,4 @@ main = do
         res <- evaluate (\(p, u) -> fmap (either (const "error") show) $ runEitherT $ addCred $ BankOfAmericaCreds $ Cred u p []) userpassword_evt
         dynRes <- holdDyn "yoyo do smn" res
         el "div" (dynText dynRes)
-        return ()
+        return (const () <$> res)
