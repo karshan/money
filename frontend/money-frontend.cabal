@@ -12,6 +12,7 @@ Executable money-frontend
    main-is: Main.hs
    build-depends:
        base,
+       data-default-class,
        reflex,
        reflex-dom,
        servant,

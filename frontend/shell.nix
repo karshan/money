@@ -32,8 +32,8 @@ let
     ghcjs-servant-client = haskellPackages.callPackage (nixpkgs.fetchgit 
       {
         url = git://github.com/karshan/ghcjs-servant-client;
-        rev = "81a5e2b60d4d5e5baeee2505e5c2b56d11fddf0a";
-        sha256 = "1rd11ch0zwj0lrly6yfgxs4nh61vnnmfh7p2la3szijszc7qapyn";
+        rev = "7b4ba155200c10f800117c730c4b65ba27e59e41";
+        sha256 = "0idrb2k2dkglnph5p1gh1hbqfylzjphk5d0b5r0k81vvzkpfwi2f";
       }) {};
   };
 
