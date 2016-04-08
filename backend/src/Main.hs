@@ -40,7 +40,7 @@ import           Network.HTTP.Types.Header  (hCookie)
 import           Network.HTTP.Types.Status  (badRequest400, found302)
 import           Network.Wai                (Application, ResponseReceived,
                                              queryString,
-                                             requestHeaders,
+                                             requestHeaders, pathInfo,
                                              responseLBS)
 import           Network.Wai.Handler.Warp   (defaultSettings, runSettings,
                                              setHost, setPort)
@@ -55,7 +55,7 @@ import           Servant.Utils.StaticFiles  (serveDirectory)
 import           Money.API                  (MoneyAPI, API)
 
 serverBaseUrl :: ByteString
-serverBaseUrl = "https://money.karshan.me/static/index.html"
+serverBaseUrl = "https://money.karshan.me/"
 
 api :: Proxy API
 api = Proxy
@@ -64,7 +64,7 @@ app :: DBContext -> Application
 app ctx = serve api (server ctx)
 
 server :: DBContext -> Server API
-server ctx = enter (Nat nat) dbServer :<|> serveDirectory "frontend/dist/build/money-frontend/money-frontend.jsexe/"
+server ctx = enter (Nat nat) dbServer :<|> serveDirectory "frontend/servedir/"
     where
         nat :: DB a -> EitherT ServantErr IO a
         nat a = liftIO $ runDB ctx a
@@ -97,7 +97,10 @@ authMiddleware passphrase (googClientId, googClientSecret) googIds mainApp req r
     let mCookie = lookup cookieName . parseCookies =<< lookup hCookie (requestHeaders req)
     cond <- maybe (return False) validateCookie mCookie
     if cond then
-         mainApp req respond
+        if null (pathInfo req) then
+            respond $ responseLBS found302 [("Location", serverBaseUrl <> "static/ghcjs-out/index.html")] ""
+        else
+            mainApp req respond
     else
         join (lookup "code" (queryString req)) & maybe authRedirect
              (bool invalidCode setCookieRedirect <=< validateGoogleCode))

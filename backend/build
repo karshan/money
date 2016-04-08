@@ -1,2 +1,6 @@
 #!/bin/sh
-nix-shell --command "cabal build; while [ 1 ]; do inotifywait -e MODIFY $(find src -name "*.hs"); cabal build; sleep 1; done"
+while [ 1 ]; do
+  inotifywait -e MODIFY $(find src -name "*.hs")
+  nix-shell --command "cabal build"
+  sleep 1
+done
