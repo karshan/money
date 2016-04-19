@@ -9,7 +9,7 @@ import           Data.List.Split (splitOn)
 import           Data.List.Util  ((!!))
 import           Data.Maybe      (mapMaybe)
 import           Prelude         hiding (last, (!!))
-import           Money.API       (Cred (..), Credential (..))
+import           API       (Cred (..), Credential (..))
 
 
 -- Aeson.encode $ BankOfAmericaCreds $ Cred "hi" "there" [("a","b")] =
