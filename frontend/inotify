@@ -1,0 +1,5 @@
+#!/bin/sh
+while [ 1 ]; do
+  inotifywait -e MODIFY $(find source -name "*.elm")
+  elm-ui build
+done
