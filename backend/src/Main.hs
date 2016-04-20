@@ -57,9 +57,6 @@ import           API                  (MoneyAPI, API)
 serverBaseUrl :: ByteString
 serverBaseUrl = "https://money.karshan.me/"
 
-indexPath :: ByteString
-indexPath = "static/index.html"
-
 api :: Proxy API
 api = Proxy
 
@@ -67,7 +64,7 @@ app :: DBContext -> Application
 app ctx = serve api (server ctx)
 
 server :: DBContext -> Server API
-server ctx = enter (Nat nat) dbServer :<|> serveDirectory "frontend/dist/"
+server ctx = enter (Nat nat) dbServer :<|> serveDirectory "frontend/servedir/"
     where
         nat :: DB a -> EitherT ServantErr IO a
         nat a = liftIO $ runDB ctx a
@@ -101,7 +98,7 @@ authMiddleware passphrase (googClientId, googClientSecret) googIds mainApp req r
     cond <- maybe (return False) validateCookie mCookie
     if cond then
         if null (pathInfo req) then
-            respond $ responseLBS found302 [("Location", serverBaseUrl <> indexPath)] ""
+            respond $ responseLBS found302 [("Location", serverBaseUrl <> "static/ghcjs-out/index.html")] ""
         else
             mainApp req respond
     else
