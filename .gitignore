@@ -1,5 +1,4 @@
 .cabal-sandbox
-.stack-work/
 dist/
 Setup.hs
 cabal.sandbox.config
