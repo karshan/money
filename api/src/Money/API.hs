@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
-module API
+module Money.API
   ( API
   , MoneyAPI
   , Categorizer

@@ -18,7 +18,7 @@ import           Network.Wreq                 (Response, responseBody,
                                                responseCookieJar,
                                                responseHeaders, responseStatus,
                                                statusCode)
-import           API (RequestLog (..), ResponseLog (..), LogRecord)
+import           Money.API (RequestLog (..), ResponseLog (..), LogRecord)
 
 mkResponseLog :: Response LBS.ByteString -> ResponseLog
 mkResponseLog r = ResponseLog (r ^. responseStatus ^. statusCode)

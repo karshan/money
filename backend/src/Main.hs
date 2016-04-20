@@ -52,7 +52,7 @@ import           Servant                    ((:<|>) (..), (:~>) (..),
                                              ServantErr (..), Server,
                                              ServerT, enter, serve)
 import           Servant.Utils.StaticFiles  (serveDirectory)
-import           API                  (MoneyAPI, API)
+import           Money.API                  (MoneyAPI, API)
 
 serverBaseUrl :: ByteString
 serverBaseUrl = "https://money.karshan.me/"
