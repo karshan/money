@@ -40,7 +40,7 @@ addCred' :: Credential -> IO String
 addCred' = fmap (either (const "todo show ServantError") show) . runEitherT . addCred
 
 -- Map k v -> Event t (Map k (Maybe v)) -> (k -> v -> m a) -> m (Dynamic t (Map k a))
-addCredWidget :: MonadWidget t m => m (Event t ())
+addCredWidget :: MonadWidget t m => m ()
 addCredWidget = mdo
   user <- textField "user"
   pass <- passwordField "password"
@@ -67,7 +67,9 @@ addCredWidget = mdo
     addCred' $ BankOfAmericaCreds $ Cred user' pass' (map snd $ Map.toList secrets')) $
        attachDyn (joinDynThroughMap secrets) $ attachDyn user $ tagDyn pass submit
   el "div" (holdDyn "" response >>= dynText)
-  return (const () <$> response)
+  res <- evaluate (\_ -> fmap (either (const "error") show) $ runEitherT $ getCreds) (const () <$> response) -- todo also use postbuild event as src event here....
+  dynRes <- holdDyn "waiting..." res
+  el "div" $ dynText dynRes
 
 mkWidget :: MonadWidget t m =>
   model ->
@@ -117,11 +119,7 @@ menuPane = do
   backEvt <- el "div" $ backButton
   pageAddCred <- padded $ button "add credentials"
   pageViewTransactions <- padded $ button "view transactions"
-  return (leftmost
-    [ backEvt
-    , const () <$> pageAddCred
-    , const () <$> pageViewTransactions
-    ], leftmost
+  return (leftmost [ backEvt, pageAddCred, pageViewTransactions], leftmost
     [ const PageAddCred <$> pageAddCred
     , const PageViewTransactions <$> pageViewTransactions])
     where
@@ -140,15 +138,14 @@ main = do
   mainWidget $ el "div" $ do
   pb <- getPostBuild
   pageEvt <- menuWidget
-  el "div" $ (dynText =<< mapDyn show =<< holdDyn PageAddCred pageEvt)
-  addCred_evt <- addCredWidget
-  el "div" transactionWidget
-  el "div" (credsWidget (appendEvents pb addCred_evt))
+  el "div" $ do
+    pageDyn <- holdDyn initialPage pageEvt
+    addCredAttr <- mapDyn (showAttr . (== PageAddCred)) pageDyn
+    viewTransAttr <- mapDyn (showAttr . (== PageViewTransactions)) pageDyn
+    elDynAttr "div" addCredAttr $ addCredWidget
+    elDynAttr "div" viewTransAttr $ transactionWidget
     where
+      initialPage = PageViewTransactions
       transactionWidget = do
         ts <- liftIO $ runEitherT getTransactions
         text (either (const "error") show ts)
-      credsWidget e = do
-        res <- evaluate (\_ -> fmap (either (const "error") show) $ runEitherT $ getCreds) e
-        dynRes <- holdDyn "waiting..." res
-        dynText dynRes
