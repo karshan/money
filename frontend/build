@@ -4,5 +4,4 @@ while [ 1 ]; do
   inotifywait -e MODIFY $(find src -name "*.hs")
   clear
   nix-shell --command "cabal build"
-  sleep 1
 done
