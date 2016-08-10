@@ -26,6 +26,6 @@ Executable money-frontend
        ghcjs-prim,
        ghcjs-servant-client,
        aeson,
-       money-api
+       money-api, parsec, lens
    ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -O2 -fno-warn-orphans
    extensions: RecursiveDo

@@ -24,7 +24,7 @@ let
           network pretty-show safecopy servant-server split text time
           transformers unordered-containers utf8-string wai warp wreq
         ];
-        buildTools = [ pkgs.cabal-install pkgs.haskellPackages.ghcid ];
+        buildTools = [ pkgs.ghc pkgs.cabal-install pkgs.haskellPackages.ghcid ];
         license = stdenv.lib.licenses.unfree;
       };
 

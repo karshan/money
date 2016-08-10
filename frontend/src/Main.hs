@@ -12,6 +12,7 @@ import Reflex.Dom
 --import Reflex.Dom.Widget.Basic
 
 import Money.API
+import FilterExpr
 import ClientAPI (getCreds, addCred, getTransactions, evaluate)
 
 -- UTIL
@@ -156,19 +157,32 @@ showAmt amt =
   let str = show amt
   in take (length str - 2) str ++ "." ++ drop (length str - 2) str
 
+--evalFilterExpr :: FilterExpr -> Transaction -> Bool
+--parseFilterExpr :: String -> Either String FilterExpr
 transactionsPage :: MonadWidget t m => m ()
 transactionsPage = do
+  eTrans <- liftIO $ runEitherT getTransactions
+  filterDyn <- textField "filter"
+  eFilterExprDyn <- mapDyn parseFilterExpr filterDyn
+  dynText =<< mapDyn show eFilterExprDyn
+  either (const $ text "todo show ServantError")
+        (\(_hash, ts) -> do
+            dynTs <- mapDyn (\eFilterExpr -> filter (either (const $ const True) evalFilterExpr eFilterExpr) ts) eFilterExprDyn
+            _ <- widgetHold (transactionTable ts) (transactionTable <$> (updated dynTs))
+            return ())
+        eTrans
+
+transactionTable :: MonadWidget t m => [Transaction] -> m ()
+transactionTable ts = do
   let td' s = elStyle "td" ([("padding", "8px")] ++ s)
   let tr' s = elStyle "tr" ([("border-bottom", "1px solid"), ("border-color", "inherit")] ++ s)
   let table' = elStyle "table" [("border", "1px solid #ccc"), ("border-collapse", "collapse"), ("width", "100%")]
-  ts <- liftIO $ runEitherT getTransactions
-  either (const $ text "todo show ServantError") (\(_hash, transactions) -> do
-    table' $ do
-      flip mapM_ (zip [(1 :: Int)..] (sortBy (flip compare `on` date) transactions)) (\(i, (Transaction desc dte amt)) -> do
-        tr' [("background-color", if i `mod` 2 == 0 then "#ffffff" else "#f1f1f1")] $ do
-          td' [] $ text $ show dte
-          td' [] $ text $ desc
-          td' [("text-align", "right")] $ text $ showAmt amt)) ts
+  table' $ do
+    flip mapM_ (zip [(1 :: Int)..] (sortBy (flip compare `on` date) ts)) (\(i, (Transaction desc dte amt)) -> do
+      tr' [("background-color", if i `mod` 2 == 1 then "#ffffff" else "#f1f1f1")] $ do
+        td' [] $ text $ show dte
+        td' [] $ text $ desc
+        td' [("text-align", "right")] $ text $ showAmt amt)
 
 main :: IO ()
 main = do

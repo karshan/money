@@ -24,4 +24,6 @@ library
                      , time
                      , aeson
                      , servant
+                     , parsec
+                     , lens
   default-language:    Haskell2010
