@@ -1,12 +1,12 @@
 module Money
     (
-      Transaction(..)
+      Txn(..)
     , month
     )
     where
 
-import           Data.Time.Calendar (toGregorian)
-import           Money.API          (Transaction (..))
+import Data.Time.Calendar (toGregorian)
+import Money.API (Txn (..))
 
-month :: Transaction -> Int
+month :: Txn -> Int
 month = (\(_,m,_) -> m) . toGregorian . date

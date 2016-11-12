@@ -12,11 +12,16 @@ Executable money-frontend
    main-is: Main.hs
    build-depends:
        base,
+       mtl,
+       blaze-html,
+       blaze-markup,
+       ixset-typed,
+       bytestring,
+       cereal,
+       safecopy,
+       money-api,
        containers,
        data-default-class,
-       reflex,
-       reflex-dom,
-       servant,
        text,
        time,
        either,
@@ -24,8 +29,9 @@ Executable money-frontend
        ghcjs-dom,
        ghcjs-base,
        ghcjs-prim,
-       ghcjs-servant-client,
-       aeson,
-       money-api, parsec, lens
+       parsec,
+       lens,
+       servant,
+       servant-client
    ghc-options: -threaded -Wall -fwarn-tabs -funbox-strict-fields -O2 -fno-warn-orphans
    extensions: RecursiveDo

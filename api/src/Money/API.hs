@@ -1,63 +1,82 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveAnyClass           #-}
-{-# LANGUAGE DeriveGeneric           #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DeriveGeneric         #-}
 module Money.API
   ( API
   , MoneyAPI
-  , Categorizer
-  , RequestLog (..)
-  , ResponseLog (..)
-  , LogRecord
-  , Cred (..)
-  , Credential (..)
-  , Transaction (..)
+  , Txn (..)
+  , TxnDb
+  , AccountId(..)
+  , Desc(..)
+  , Amt(..)
+  , Date(..)
   )
   where
 
-import           Servant.API                ((:<|>) (..), (:>), Get,
-                                             JSON, Put, Raw, ReqBody)
-import           Data.Time          (Day(..))
-import           GHC.Generics                 (Generic)
-import           Data.Aeson                   (FromJSON, ToJSON)
+import Servant.API ((:<|>) (..), (:>), Get,
+                    JSON, Raw)
+import Data.ByteString (ByteString)
+import Data.Time (Day(..))
+import Data.Data (Data)
+import Data.Typeable (Typeable)
+import Data.Proxy (Proxy(..))
+import Data.IxSet.Typed
+import Data.SafeCopy          (base, deriveSafeCopy)
+import Data.Text              (Text)
+import Data.Set               (Set)
+import GHC.Generics (Generic)
+import Data.Aeson (FromJSON, ToJSON)
 
-deriving instance Generic Day
-deriving instance FromJSON Day
-deriving instance ToJSON Day
+data Txn =
+    Txn {
+        _id         :: Text
+      , accountId   :: Text
+      , description :: Text
+      , date        :: Day
+      , amount      :: Int
+    } deriving (Show, Eq, Ord, Data, Typeable, Generic)
+instance FromJSON Txn
+instance ToJSON Txn
 
-data Transaction = Transaction { description :: String
-                               , date        :: Day
-                               , amount      :: Int
-                               } deriving (Show, Read, Eq, Ord, Generic, FromJSON, ToJSON)
+type TxnIxs = '[AccountId, Txn, Desc, Amt, Date]
+type TxnDb = IxSet TxnIxs Txn
 
-                                            
-type Categorizer = (String, [String])
+newtype AccountId = AccountId Text deriving (Show, Eq, Ord)
+newtype Desc = Desc Text deriving (Show, Eq, Ord)
+newtype Amt = Amt Int deriving (Show, Eq, Ord)
+newtype Date = Date Day deriving (Show, Eq, Ord)
 
-data RequestLog = Get String | Post String [(String, String)] deriving (Generic, Show, FromJSON, ToJSON)
-data ResponseLog = ResponseLog Int [(String, String)] String [String] deriving (Generic, Show, FromJSON, ToJSON)
-type LogRecord = (RequestLog, ResponseLog)
+instance Indexable TxnIxs Txn where
+    indices = ixList
+                (ixFun getAccountId)
+                (ixGen (Proxy :: Proxy Txn))
+                (ixFun getDesc)
+                (ixFun getAmt)
+                (ixFun getDate)
 
-data Cred = Cred { username              :: String
-                 , password              :: String
-                 , secretQuestionAnswers :: [(String, String)]
-                 } deriving (Generic, ToJSON, FromJSON)
+getDesc :: Txn -> [Desc]
+getDesc t = [Desc (description t)]
 
+getAmt :: Txn -> [Amt]
+getAmt t = [Amt (amount t)]
 
-data Credential = BankOfAmericaCreds Cred | ChaseCreds Cred deriving (Generic, FromJSON, ToJSON)
+getDate :: Txn -> [Date]
+getDate t = [Date (date t)]
+
+getAccountId :: Txn -> [AccountId]
+getAccountId t = [AccountId (accountId t)]
 
 type API = MoneyAPI :<|> ("static" :> Raw)
 
 type MoneyAPI =
-         "transactions"   :> Get '[JSON] (String, [Transaction])
-    :<|> "credentials"    :> Get '[JSON] [(String, String)] -- [(service, username)]
-    :<|> "addCredential"  :> ReqBody '[JSON] Credential
-                          :> Put '[JSON] ()
-    :<|> "logs"           :> Get '[JSON] [([LogRecord], Maybe String)]
-    :<|> "categorizers"   :> Get '[JSON] [Categorizer]
-    :<|> "addCategorizer" :> ReqBody '[JSON] Categorizer
-                          :> Put '[JSON] ()
+         "transactions"   :> Get '[JSON] (Set Txn)
+
+$(deriveSafeCopy 0 'base ''Txn)

@@ -7,174 +7,85 @@
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE TemplateHaskell            #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE ConstraintKinds            #-}
 {-# OPTIONS_GHC -fno-warn-orphans       #-}
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
 {-# OPTIONS_GHC -fno-warn-unused-binds  #-}
 {-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 module DB
     ( DB
+    , DB'
     , DBContext
-    , Categorizer
-    , addCredential
     , runDB
     , openDB
-    , getTransactions
-    , getCredentials
-    , mergeTransactions
-    , getCookieJar
-    , putCookieJar
-    , getLogs
-    , addLog
-    , getCategorizers
-    , addCategorizer
+    , getTxnDb
+    , mergeTxns
     )
     where
 
-import           Control.Lens           (view, (%~), (&), (.~), (^.))
-import           Control.Lens.TH        (makeLenses)
-import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad.Reader   (MonadReader, ReaderT, ask, runReaderT)
-import           Control.Monad.State    (get, put)
-import           Crypto.Hash            (Digest, SHA256, hash)
-import           Data.Acid              (AcidState, Query, Update, makeAcidic,
-                                         openLocalStateFrom, query, update)
-import           Data.Aeson             (encode)
-import           Data.ByteString        (ByteString)
-import           Data.ByteString.Lazy   (toStrict)
-import           Data.Char              (toLower)
-import           Data.Default.Class     (def)
-import           Data.Function          (on)
-import           Data.List              (deleteFirstsBy, isInfixOf)
-import           Data.Maybe             (isJust)
-import           Data.SafeCopy          (base, deriveSafeCopy)
-import           Money                  (Transaction (..))
-import           Network.HTTP.Client    (Cookie, CookieJar)
-import           Scrapers.Browser       (LogRecord, RequestLog, ResponseLog)
-import           Scrapers.Common        (Cred (..), Credential (..))
+import Control.Lens           (view, (^.))
+import Control.Lens.TH        (makeLenses)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.State    (get, put)
+import Control.Monad.Reader   (MonadReader, ReaderT, ask, runReaderT)
+import Data.Acid              (AcidState, Query, makeAcidic, Update,
+                               openLocalStateFrom, query, update)
+import Data.SafeCopy          (base, deriveSafeCopy)
+import Money.API              (TxnDb)
+import Data.IxSet.Typed       (empty)
+import qualified Data.IxSet.Typed as IxSet (union, size)
+import Data.Text              (Text)
+import Data.Map.Strict        (Map)
+import qualified Data.Map.Strict as Map
 
 type DBContext = AcidState Database
-type Categorizer = (String, [String])
 data Database = Database {
-    _transactions :: [Transaction]
-  , _credentials  :: [Credential]
-  , _cookieJar    :: CookieJar
-  , _logs         :: [([LogRecord], Maybe String)]
-  , _categorizers :: [Categorizer]
+    _txnDb :: TxnDb
+  , _bals :: Map Text Int
   }
 
 makeLenses ''Database
 
 $(deriveSafeCopy 0 'base ''Database)
-$(deriveSafeCopy 0 'base ''Transaction)
-$(deriveSafeCopy 0 'base ''Credential)
-$(deriveSafeCopy 0 'base ''Cred)
-$(deriveSafeCopy 0 'base ''CookieJar)
-$(deriveSafeCopy 0 'base ''Cookie)
-$(deriveSafeCopy 0 'base ''ResponseLog)
-$(deriveSafeCopy 0 'base ''RequestLog)
 
--- FIXME: the has shouldn't depend on the ordering of ts
---        we can hash transactions separately and then xor the hashes together
-hashTransactions :: [Transaction] -> String
-hashTransactions ts = show $ sha256 $ toStrict $ encode ts
-    where
-        sha256 :: ByteString -> Digest SHA256
-        sha256 = hash
+getTxnDb_ :: Query Database TxnDb
+getTxnDb_ = view txnDb <$> ask
 
-ciIsInfixOf :: String -> String -> Bool
-ciIsInfixOf = isInfixOf `on` map toLower
-
--- returns the number of new transactions (those that are not already in the db)
-mergeTransactions_ :: [Transaction] -> Update Database Int
-mergeTransactions_ new = do
+mergeTxns_ :: (TxnDb, Map Text Int) -> Update Database Int
+mergeTxns_ (newTxns, newBals) = do
     db <- get
-    let (numUpdated, updated) = mergeTransactionsPure new $ db ^. transactions
-    put (db & transactions .~ updated)
+    let (numUpdated, updated) = mergeTxnsPure newTxns (db ^. txnDb)
+    let updatedBals = mergeBals newBals (db ^. bals)
+    put (db { _txnDb = updated })
     return numUpdated
 
-mergeTransactionsPure :: [Transaction] -> [Transaction] -> (Int, [Transaction])
-mergeTransactionsPure new old = (length output - length old, output)
-   where
-       eqOnAllButTags = and2 [(==) `on` date, (==) `on` description, (==) `on` amount]
-       and2 :: [a -> a -> Bool] -> a -> a -> Bool
-       and2 fs a b = all (\f -> f a b) fs
-       output :: [Transaction]
-       output = old ++ deleteFirstsBy eqOnAllButTags new old
+mergeTxnsPure :: TxnDb -> TxnDb -> (Int, TxnDb)
+mergeTxnsPure new old =
+    let u = IxSet.union new old
+    in (IxSet.size u - IxSet.size old, u)
 
-getTransactions_ :: Query Database [Transaction]
-getTransactions_ = view transactions <$> ask
-
-addCredential_ :: Credential -> Update Database ()
-addCredential_ cred = put . (credentials %~ (cred:)) =<< get
-
-getCredentials_ :: Query Database [Credential]
-getCredentials_ = view credentials <$> ask
-
-getCookieJar_ :: Query Database CookieJar
-getCookieJar_ = view cookieJar <$> ask
-
-putCookieJar_ :: CookieJar -> Update Database ()
-putCookieJar_ cj = put . (cookieJar .~ cj) =<< get
-
-getLogs_ :: Query Database [([LogRecord], Maybe String)]
-getLogs_ = view logs <$> ask
-
-addLog_ :: ([LogRecord], Maybe String) -> Update Database ()
-addLog_ l = put . (logs %~ (l:)) =<< get
-
-getCategorizers_ :: Query Database [Categorizer]
-getCategorizers_ = view categorizers <$> ask
-
-addCategorizer_ :: Categorizer -> Update Database ()
-addCategorizer_ c = put . (categorizers %~ (c:)) =<< get
-
-$(makeAcidic ''Database [ 'mergeTransactions_, 'getTransactions_
-                        , 'addCredential_, 'getCredentials_
-                        , 'getCookieJar_, 'putCookieJar_
-                        , 'getLogs_, 'addLog_
-                        , 'getCategorizers_, 'addCategorizer_
+mergeBals :: Map Text Int -> Map Text Int -> Map Text Int
+mergeBals = Map.unionWith (\new _ -> new)
+    
+$(makeAcidic ''Database [ 'getTxnDb_
+                        , 'mergeTxns_
                         ])
 
-newtype DB a = DB { unDB :: ReaderT (AcidState Database) IO a }
-    deriving (Functor, Applicative, Monad, MonadIO, MonadReader (AcidState Database))
+type DB m = (MonadReader DBContext m, MonadIO m)
+type DB' = ReaderT DBContext IO
 
-runDB :: DBContext -> DB a -> IO a
-runDB db (DB a) = runReaderT a db
+runDB :: DBContext -> DB' a -> IO a
+runDB db a = runReaderT a db
 
 openDB :: FilePath -> IO DBContext
-openDB fp = openLocalStateFrom fp (Database [] [] def [] [])
-
+openDB fp = openLocalStateFrom fp (Database (empty :: TxnDb) Map.empty)
 
 update' a = liftIO . update a
 query' a = liftIO . query a
 
 --TODO generate with TemplateHaskell
-getTransactions :: DB (String, [Transaction])
-getTransactions = (\ts -> (hashTransactions ts, ts)) <$> ((`query'` GetTransactions_) =<< ask)
+getTxnDb :: DB m => m TxnDb
+getTxnDb = (`query'` GetTxnDb_) =<< ask
 
-mergeTransactions :: [Transaction] -> DB Int
-mergeTransactions new = (`update'` MergeTransactions_ new) =<< ask
-
-addCredential :: Credential -> DB ()
-addCredential cred = (`update'` AddCredential_ cred) =<< ask
-
-getCredentials :: DB [Credential]
-getCredentials = (`query'` GetCredentials_) =<< ask
-
-getCookieJar :: DB CookieJar
-getCookieJar = (`query'` GetCookieJar_) =<< ask
-
-putCookieJar :: CookieJar -> DB ()
-putCookieJar cj = (`update'` PutCookieJar_ cj) =<< ask
-
-getLogs :: DB [([LogRecord], Maybe String)]
-getLogs = filter (isJust . snd) <$> ((`query'` GetLogs_) =<< ask)
-
-addLog :: ([LogRecord], Maybe String) -> DB ()
-addLog l = (`update'` AddLog_ l) =<< ask
-
-getCategorizers :: DB [Categorizer]
-getCategorizers = (`query'` GetCategorizers_) =<< ask
-
-addCategorizer :: Categorizer -> DB ()
-addCategorizer c = (`update'` AddCategorizer_ c) =<< ask
+mergeTxns :: DB m => (TxnDb, Map Text Int) -> m Int
+mergeTxns new = (`update'` MergeTxns_ new) =<< ask

@@ -12,7 +12,6 @@ maintainer:          karshan.sharma@gmail.com
 -- copyright:
 -- category:
 build-type:          Simple
-extra-source-files:  README.md
 cabal-version:       >= 1.20
 
 library
@@ -21,9 +20,14 @@ library
   ghc-options:         -Wall
   other-extensions:    OverloadedStrings
   build-depends:       base
-                     , time
+                     , containers
+                     , text
+                     , safecopy
+                     , bytestring
                      , aeson
+                     , lens
                      , servant
                      , parsec
-                     , lens
+                     , time
+                     , ixset-typed
   default-language:    Haskell2010
